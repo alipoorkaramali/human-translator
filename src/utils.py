@@ -173,3 +173,11 @@ def is_uncountable_noun(word, ctx=None):
     if wn.synsets(w + 's', pos='n') == [] and syns:
         return True
     return False
+
+def separate_punct_except_apostrophe(text):
+    """جدا کردن علائم نگارشی به جز آپوستروف"""
+    pattern = r"([A-Za-z0-9])([.,!?;:\(\)\[\]\{\}«»…—–])"
+    text = re.sub(pattern, r"\1 \2", text)
+    pattern = r"([.,!?;:\(\)\[\]\{\}«»…—–])([A-Za-z0-9])"
+    text = re.sub(pattern, r"\1 \2", text)
+    return text

@@ -1,5 +1,5 @@
 import pytest
-from src.processor import number_type, is_possessive_or_s, is_np_boundary
+from src.utils import number_type, is_possessive_or_s, is_np_boundary
 
 def test_number_type():
     assert number_type("5", set(), set()) == "cardinal"
