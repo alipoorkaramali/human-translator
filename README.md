@@ -1,2 +1,2 @@
 # human-translator
-translate like human
+translate like a human
