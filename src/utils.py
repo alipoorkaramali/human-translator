@@ -1,156 +1,175 @@
 # =============================================================================
-# utils.py
-# توابع کمکی و عمومی برای کل پروژه (مدیریت فایل، تنظیمات NLTK، لاگینگ و ...)
+# utils.py - توابع کمکی و عمومی
 # =============================================================================
 
 import os
 import sys
+import re
 import logging
 import nltk
+from nltk.corpus import wordnet as wn
+from nltk.corpus import cmudict
 from pathlib import Path
 
-
 # =============================================================================
-# ۱. تنظیمات اولیه NLTK (بررسی وجود دیتاها و دانلود در صورت نیاز)
+# تنظیمات اولیه NLTK
 # =============================================================================
 def setup_nltk():
-    """
-    بررسی می‌کند که دیتاهای مورد نیاز NLTK (punkt, wordnet, cmudict) 
-    از قبل نصب هستند یا نه. اگر نباشند، دانلود می‌کند.
-    این تابع در محیط‌هایی که دیتاها از قبل در داکر وجود دارند، 
-    کاری انجام نمی‌دهد و فقط یک پیام لاگ می‌دهد.
-    """
     required_packages = ['punkt', 'wordnet', 'cmudict']
     missing_packages = []
-
     for package in required_packages:
         try:
-            # بررسی وجود پکیج با استفاده از nltk.data.find
             nltk.data.find(f'tokenizers/{package}' if package == 'punkt' else f'corpora/{package}')
         except LookupError:
             missing_packages.append(package)
-
     if missing_packages:
-        logging.info(f"دیتاهای NLTK زیر پیدا نشدند، در حال دانلود: {', '.join(missing_packages)}")
+        logging.info(f"دانلود دیتاهای NLTK: {', '.join(missing_packages)}")
         for package in missing_packages:
             nltk.download(package, quiet=True)
-        logging.info("دانلود دیتاهای NLTK کامل شد.")
-    else:
-        logging.info("تمامی دیتاهای مورد نیاز NLTK از قبل موجود هستند.")
-
 
 # =============================================================================
-# ۲. مدیریت فایل و مسیرها
+# مدیریت فایل و مسیرها
 # =============================================================================
 def ensure_dir(path):
-    """
-    پوشه‌ی مورد نظر را می‌سازد (اگر وجود نداشته باشد).
-    معادل os.makedirs(path, exist_ok=True) با پیام لاگ.
-    """
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
         logging.info(f"پوشه ساخته شد: {path}")
-    else:
-        logging.debug(f"پوشه از قبل وجود دارد: {path}")
     return path
 
-
 def get_project_root():
-    """
-    مسیر ریشه‌ی پروژه را بر اساس مکان این فایل (utils.py) برمی‌گرداند.
-    فرض می‌کند که این فایل در src/ قرار دارد، بنابراین ریشه یک سطح بالاتر است.
-    """
-    current_file = Path(__file__).resolve()
-    return current_file.parent.parent  # یک سطح بالاتر از src/
-
+    return Path(__file__).resolve().parent.parent
 
 def read_text_file(file_path):
-    """
-    یک فایل متنی را با encoding=utf-8 خوانده و محتوای آن را برمی‌گرداند.
-    اگر فایل پیدا نشد، خطا را مدیریت کرده و برنامه را خاتمه می‌دهد.
-    """
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        logging.info(f"فایل ورودی با موفقیت خوانده شد: {file_path}")
-        return content
-    except FileNotFoundError:
-        logging.error(f"فایل '{file_path}' پیدا نشد!")
-        sys.exit(1)
+            return f.read()
     except Exception as e:
-        logging.error(f"خطا در خواندن فایل '{file_path}': {e}")
+        logging.error(f"خطا در خواندن فایل {file_path}: {e}")
         sys.exit(1)
-
 
 def save_text_file(file_path, content):
-    """
-    یک فایل متنی را با encoding=utf-8 ذخیره می‌کند.
-    قبل از ذخیره، اطمینان حاصل می‌کند که پوشه‌ی مقصد وجود دارد.
-    """
     ensure_dir(os.path.dirname(file_path))
-    try:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        logging.info(f"فایل خروجی متنی ذخیره شد: {file_path}")
-    except Exception as e:
-        logging.error(f"خطا در ذخیره‌ی فایل '{file_path}': {e}")
-        sys.exit(1)
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    logging.info(f"فایل ذخیره شد: {file_path}")
 
-
-# =============================================================================
-# ۳. تنظیمات لاگینگ (Logging)
-# =============================================================================
 def setup_logging(level=logging.INFO, log_file=None):
-    """
-    تنظیمات اولیه لاگینگ را انجام می‌دهد.
-    - level: سطح لاگ (مثلاً logging.DEBUG برای دیباگ)
-    - log_file: اگر آدرس یک فایل داده شود، لاگ‌ها در آن نیز ذخیره می‌شوند.
-    """
     log_format = '%(asctime)s - %(levelname)s - %(message)s'
     handlers = [logging.StreamHandler(sys.stdout)]
-
     if log_file:
         ensure_dir(os.path.dirname(log_file))
         handlers.append(logging.FileHandler(log_file, encoding='utf-8'))
-
-    logging.basicConfig(
-        level=level,
-        format=log_format,
-        handlers=handlers
-    )
-    logging.info("سیستم لاگینگ راه‌اندازی شد.")
-
+    logging.basicConfig(level=level, format=log_format, handlers=handlers)
 
 # =============================================================================
-# ۴. توابع کمکی عمومی (متفرقه)
+# توابع کمکی پردازش متن (که قبلاً در processor.py بودند)
 # =============================================================================
-def is_text_file(file_path):
-    """
-    تشخیص اینکه آیا فایل ورودی احتمالاً یک فایل متنی است یا نه.
-    با بررسی پسوند (این یک تشخیص ساده است، برای موارد خاص نیاز به بررسی محتوا دارد).
-    """
-    text_extensions = {'.txt', '.text', '.md', '.rtf'}
-    ext = Path(file_path).suffix.lower()
-    return ext in text_extensions or not ext  # فایل‌های بدون پسوند را هم متن فرض می‌کنیم
+PUNCTUATION = {".", ",", "!", "?", ";", ":", "…", "—", "–", ")", "(", "[", "]", "{", "}", "«", "»"}
 
+def is_punctuation(token):
+    return token in PUNCTUATION
 
-def clean_text_for_processing(text):
-    """
-    پاکسازی اولیه‌ی متن قبل از ارسال به پردازشگر اصلی.
-    شامل حذف فاصله‌های اضافی، تبدیل خطوط جدید به فاصله و ...
-    """
-    # جایگزینی خطوط جدید با فاصله
-    text = text.replace('\n', ' ').replace('\r', ' ')
-    # حذف فاصله‌های اضافی (بیش از یک فاصله)
-    text = ' '.join(text.split())
-    return text
+def is_and_word(word):
+    return word.lower() == 'and'
 
+def is_possessive_or_s(word):
+    if not word:
+        return False
+    w = str(word).lower().strip()
+    if w.endswith("'s") or w.endswith("s'"):
+        return True
+    poss = {'my', 'your', 'his', 'her', 'its', 'our', 'their', 'mine', 'yours', 'hers', 'ours', 'theirs'}
+    return w in poss
 
-def get_output_paths(base_dir="data/output", prefix="output"):
-    """
-    تولید مسیرهای پیش‌فرض برای فایل‌های خروجی (اکسل و متن).
-    برمی‌گرداند: (path_excel, path_txt)
-    """
-    excel_path = os.path.join(base_dir, f"{prefix}.xlsx")
-    txt_path = os.path.join(base_dir, f"{prefix}.txt")
-    return excel_path, txt_path
+def is_np_boundary(token):
+    if not token:
+        return False
+    t = str(token).lower()
+    if t in {".", "!", "?", ";", ":", "—", ","}:
+        return True
+    if re.search(r'[.!?;:—]$', t):
+        return True
+    preps = {'in', 'on', 'at', 'by', 'with', 'from', 'to', 'for', 'about', 'under', 'over',
+             'between', 'among', 'during', 'before', 'after', 'since', 'until', 'into', 'onto'}
+    if t in preps:
+        return True
+    if t in {'and', 'but', 'or', 'nor', 'yet', 'so'}:
+        return True
+    if t in {")", "]", "}", '"', "'"}:
+        return True
+    syns = wn.synsets(t)
+    if syns and syns[0].pos() == 'v':
+        return True
+    return False
+
+def is_cardinal_word(word, cardinal_numbers):
+    w = word.lower()
+    return w.isdigit() or w in cardinal_numbers
+
+def is_ordinal_word(word, ordinal_numbers):
+    w = word.lower()
+    return (w in ordinal_numbers or re.match(r'^\d+(st|nd|rd|th)$', w) or w in ['st', 'nd', 'rd', 'th'])
+
+def number_type(word, cardinal_numbers, ordinal_numbers):
+    if not word:
+        return None
+    w_clean = re.sub(r'[.,]', '', word.lower())
+    if w_clean.isdigit() or w_clean in cardinal_numbers:
+        return 'cardinal'
+    if re.match(r'^\d+(st|nd|rd|th)$', w_clean) or w_clean in ordinal_numbers:
+        return 'ordinal'
+    if '-' in word:
+        parts = word.lower().split('-')
+        clean_parts = [p for p in parts if not is_and_word(p)]
+        if len(clean_parts) >= 2 and is_ordinal_word(clean_parts[-1], ordinal_numbers):
+            if all(is_cardinal_word(p, cardinal_numbers) for p in clean_parts[:-1]):
+                return 'ordinal'
+        if all(is_cardinal_word(p, cardinal_numbers) or is_and_word(p) for p in parts):
+            return 'cardinal'
+    lowered = word.lower()
+    if ('/' in lowered or any(kw in lowered for kw in ['half', 'third', 'quarter', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth', 'hundredth', 'thousandth'])):
+        return 'cardinal'
+    return None
+
+def syllable_count(word):
+    from nltk.corpus import cmudict
+    _cmu = cmudict.dict()
+    w = word.lower()
+    w_clean = re.sub(r"[^\w'-]", '', w)
+    try:
+        pron = _cmu[w_clean][0]
+        return sum(1 for p in pron if re.search(r'\d', p))
+    except:
+        return max(1, len(re.findall(r'[aeiouy]+', w_clean, re.I)))
+
+def is_uncountable_noun(word, ctx=None):
+    if ctx is None:
+        ctx = {}
+    w = word.lower().strip()
+    common_uncountables = {
+        'water', 'time', 'money', 'information', 'news', 'furniture', 'advice',
+        'knowledge', 'equipment', 'luggage', 'music', 'art', 'love', 'happiness',
+        'rice', 'bread', 'milk', 'coffee', 'tea', 'wine', 'beer', 'food', 'sugar',
+        'research', 'evidence', 'progress', 'work', 'homework', 'traffic', 'weather',
+        'damage', 'permission', 'travel', 'fun', 'luck', 'health', 'education',
+        'violence', 'pollution', 'air', 'electricity', 'light', 'heat', 'space'
+    }
+    if w in common_uncountables:
+        return True
+    if ctx.get('vague_quant_set') and w in ctx['vague_quant_set']:
+        return True
+    syns = wn.synsets(w, pos='n')
+    if not syns:
+        return False
+    for syn in syns:
+        definition = syn.definition().lower()
+        if any(phrase in definition for phrase in ['amount of', 'quantity of', 'mass of', 'substance', 'uncountable', 'mass noun']):
+            return True
+        for hyper_path in syn.hypernym_paths():
+            for hyper in hyper_path:
+                hyper_name = hyper.name()
+                if 'substance.n.01' in hyper_name or 'abstraction.n.06' in hyper_name:
+                    return True
+    if wn.synsets(w + 's', pos='n') == [] and syns:
+        return True
+    return False
