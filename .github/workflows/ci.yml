@@ -58,6 +58,8 @@ jobs:
         continue-on-error: true
 
       - name: 🧪 اجرای تست‌های واحد (در صورت وجود)
+        env:
+          PYTHONPATH: .
         run: |
           if [ -d "tests" ] && [ "$(ls -A tests/*.py 2>/dev/null)" ]; then
             pytest tests/ -v
@@ -67,12 +69,14 @@ jobs:
         continue-on-error: true
 
       - name: 🏃 اجرای اصلی برنامه (Smoke Test)
+        env:
+          PYTHONPATH: .
         run: |
           # ساخت فایل نمونه
           mkdir -p data/input data/output
           echo "This is a CI test. It has two sentences. Hello world!" > data/input/ci_test.txt
           
-          # اجرا
+          # اجرا با PYTHONPATH تا import از src کار کند
           python src/main.py data/input/ci_test.txt
           
           # بررسی خروجی
