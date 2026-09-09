@@ -1,0 +1,118 @@
+# ============================================================
+# CI Pipeline برای پروژه‌ی human-translator
+# اجرای تست‌ها روی هر push یا pull request به شاخه‌ی main
+# ============================================================
+
+name: CI - تست و بررسی کد
+
+# زمان اجرا: روی هر push به main یا هر pull request
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+# تعریف Jobها
+jobs:
+  # ------------------------------------------------------------
+  # Job 1: تست روی چندین نسخه‌ی پایتون
+  # ------------------------------------------------------------
+  test:
+    name: تست روی Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: [ '3.9', '3.10', '3.11' ]
+    
+    steps:
+      # ۱. دریافت کد از مخزن
+      - name: 📥 دریافت کد
+        uses: actions/checkout@v4
+
+      # ۲. نصب پایتون
+      - name: 🐍 نصب Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # ۳. نصب وابستگی‌ها
+      - name: 📦 نصب کتابخانه‌های مورد نیاز
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      # ۴. دانلود دیتاهای NLTK (برای محیط CI)
+      - name: 📥 دانلود دیتاهای NLTK
+        run: |
+          python -m nltk.downloader punkt wordnet cmudict
+
+      # ۵. بررسی استایل کد با flake8
+      - name: 🔍 بررسی خطاهای استایل (flake8)
+        run: |
+          flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      # ۶. اجرای تست‌های واحد با pytest
+      - name: 🧪 اجرای تست‌های واحد
+        run: |
+          pytest tests/ -v --cov=src/ --cov-report=term-missing
+        continue-on-error: false
+
+      # ۷. تست اجرای برنامه با یک فایل نمونه
+      - name: 🏃 تست اجرای برنامه (smoke test)
+        run: |
+          # یک فایل نمونه برای تست بساز
+          echo "This is a sample text. It has three sentences. Hello world!" > data/input/test_sample.txt
+          # اجرای برنامه
+          python src/main.py data/input/test_sample.txt
+          # بررسی اینکه خروجی ساخته شده
+          test -f data/output/output.xlsx && echo "✅ خروجی اکسل ساخته شد."
+          test -f data/output/output.txt && echo "✅ خروجی متنی ساخته شد."
+
+  # ------------------------------------------------------------
+  # Job 2: ساخت ایمیج داکر (تست داکر)
+  # ------------------------------------------------------------
+  docker-build:
+    name: ساخت و تست ایمیج داکر
+    runs-on: ubuntu-latest
+    needs: test   # بعد از موفقیت Job قبلی اجرا شود
+    
+    steps:
+      - name: 📥 دریافت کد
+        uses: actions/checkout@v4
+
+      - name: 🐳 نصب و تنظیم داکر
+        uses: docker/setup-buildx-action@v3
+
+      - name: 📦 ساخت ایمیج داکر
+        run: |
+          docker build -f docker/Dockerfile -t text-processor .
+
+      - name: 🧪 تست اجرا با داکر
+        run: |
+          # یک فایل نمونه بساز
+          echo "Docker test text. Hello from container!" > data/input/docker_test.txt
+          # اجرا با داکر
+          docker run --rm \
+            -v "$(pwd)/data:/app/data" \
+            -v "$(pwd)/Book1.xlsx:/app/Book1.xlsx" \
+            text-processor data/input/docker_test.txt
+          # بررسی خروجی
+          test -f data/output/output.xlsx && echo "✅ خروجی داکر ساخته شد."
+
+  # ------------------------------------------------------------
+  # Job 3: گزارش نهایی (اختیاری)
+  # ------------------------------------------------------------
+  report:
+    name: 📊 گزارش نهایی تست‌ها
+    runs-on: ubuntu-latest
+    needs: [ test, docker-build ]
+    if: always()
+    
+    steps:
+      - name: ✅ وضعیت نهایی تست‌ها
+        run: |
+          echo "✅ همه‌ی تست‌ها با موفقیت انجام شدند!"
+          echo "📌 اگر خطایی دیدید، لطفاً بخش‌های قبلی را بررسی کنید."
