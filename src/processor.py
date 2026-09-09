@@ -1,7 +1,7 @@
 # =============================================================================
 # processor.py
 # تمام توابع پردازش متن (برچسب‌زنی کمیت‌نماها، اعداد، صفات، قیود و ...)
-# بدون وابستگی به Jupyter / ipywidgets
+# شامل قوانین اختصاصی m1 تا m5 (با استفاده از rules.py)
 # =============================================================================
 
 import pandas as pd
@@ -9,6 +9,9 @@ import nltk
 import re
 from nltk.corpus import wordnet as wn
 from nltk.corpus import cmudict
+
+# وارد کردن قوانین اختصاصی
+from .rules import apply_all_rules
 
 # =============================================================================
 # ۰. بارگذاری اولیه NLTK (در صورت نیاز، فقط یکبار انجام میشه)
@@ -736,7 +739,7 @@ def postprocess(out_words, out_labels, out_numtype, ctx):
         if not changed and iteration >= 3:
             break
 
-    # اجرای قوانین خاص
+    # اجرای قوانین خاص (ش و ض)
     apply_law_sh_fixed(out_words, out_labels, out_numtype, ctx)
     apply_law_z_fixed(out_words, out_labels, out_numtype, ctx)
     apply_the_ordinal_rule(out_words, out_labels, out_numtype)
@@ -969,11 +972,19 @@ def process_text(text, excel_file='Book1.xlsx', output_file='data/output/output.
         'intensifier_set': intensifier_set, 'vague_quant_set': vague_quant_set
     }
 
+    # ۱. اجرای پس‌پردازش اصلی (postprocess)
     out_words, out_labels, out_numtype, dict_roles = postprocess(
         out_words, out_labels, out_numtype, ctx
     )
 
+    # ۲. اجرای قوانین اختصاصی m1 تا m5 (قوانین جدید از rules.py)
+    out_words, out_labels, out_numtype = apply_all_rules(
+        out_words, out_labels, out_numtype, ctx
+    )
+
+    # --------------------------------------------------------------
     # ذخیره خروجی
+    # --------------------------------------------------------------
     df_out = pd.DataFrame({
         'کلمه': out_words,
         'برچسب': out_labels,
