@@ -94,7 +94,23 @@ jobs:
             exit 1
           fi
 
-  # Job داکر (اختیاری)
+      # ============================================================
+      # 📤 آپلود خروجی‌ها به گیت‌هاب (Artifacts)
+      # ============================================================
+      - name: 📤 آپلود خروجی‌ها (اکسل و متن)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-python-${{ matrix.python-version }}
+          path: |
+            data/output/output.xlsx
+            data/output/output.txt
+          retention-days: 7
+          if-no-files-found: warn
+
+  # ============================================================
+  # Job داکر
+  # ============================================================
   docker-test:
     name: تست داکر
     runs-on: ubuntu-latest
@@ -102,11 +118,36 @@ jobs:
     if: success()
     steps:
       - uses: actions/checkout@v4
+      
       - name: ساخت ایمیج
         run: docker build -f docker/Dockerfile -t text-processor .
+      
       - name: اجرا با داکر
         run: |
           mkdir -p data/input data/output
-          echo "Docker CI test" > data/input/docker_test.txt
-          docker run --rm -v "$(pwd)/data:/app/data" -v "$(pwd)/Book1.xlsx:/app/Book1.xlsx" text-processor data/input/docker_test.txt
-          test -f data/output/output.xlsx && echo "✅ داکر موفق بود."
+          echo "Docker CI test. This has two sentences." > data/input/docker_test.txt
+          docker run --rm \
+            -v "$(pwd)/data:/app/data" \
+            -v "$(pwd)/Book1.xlsx:/app/Book1.xlsx" \
+            text-processor data/input/docker_test.txt
+          
+          if [ -f "data/output/output.xlsx" ]; then
+            echo "✅ داکر موفق بود - خروجی اکسل ساخته شد."
+          else
+            echo "❌ خروجی اکسل ساخته نشد!"
+            exit 1
+          fi
+
+      # ============================================================
+      # 📤 آپلود خروجی‌های داکر به گیت‌هاب (Artifacts)
+      # ============================================================
+      - name: 📤 آپلود خروجی‌های داکر
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-docker
+          path: |
+            data/output/output.xlsx
+            data/output/output.txt
+          retention-days: 7
+          if-no-files-found: warn
