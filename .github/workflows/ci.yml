@@ -12,10 +12,23 @@ on:
     branches: [ main, develop ]
     paths:
       - 'data/input/**'
+      - 'src/**'              # 🆕 تغییر کد → CI اجرا شود
+      - 'tests/**'            # 🆕 تغییر تست → CI اجرا شود
+      - 'Book1.xlsx'
+      - 'requirements*.txt'
+      - 'setup.py'
+      - 'docker/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'data/input/**'
+      - 'src/**'              # 🆕
+      - 'tests/**'            # 🆕
+      - 'Book1.xlsx'
+      - 'requirements*.txt'
+      - 'setup.py'
+      - 'docker/**'
 
 jobs:
   test:
@@ -24,7 +37,7 @@ jobs:
     strategy:
       matrix:
         python-version: [ '3.9', '3.10', '3.11' ]
-    
+
     steps:
       - name: 📥 دریافت کد
         uses: actions/checkout@v4
@@ -42,38 +55,130 @@ jobs:
 
       - name: 📥 دانلود دیتاهای NLTK
         run: |
-          python -m nltk.downloader punkt wordnet cmudict
+          # 🆕 استفاده از اسکریپت اختصاصی پروژه
+          python scripts/download_nltk.py
 
-      - name: 🔍 بررسی وجود فایل‌های ضروری
+      # ============================================================
+      # 🆕 بررسی وجود فایل‌ها و پکیج‌های ضروری ساختار جدید
+      # ============================================================
+      - name: 🔍 بررسی فایل‌های ضروری
         run: |
-          if [ ! -f "Book1.xlsx" ]; then
-            echo "❌ Book1.xlsx وجود ندارد!"
-            exit 1
-          fi
-          if [ ! -f "src/__init__.py" ]; then
-            echo "❌ src/__init__.py وجود ندارد!"
-            exit 1
-          fi
+          set -e
+          errors=0
+
+          check_file() {
+            if [ ! -f "$1" ]; then
+              echo "❌ فایل ضروری وجود ندارد: $1"
+              errors=$((errors+1))
+            fi
+          }
+          check_dir() {
+            if [ ! -d "$1" ]; then
+              echo "❌ پوشه ضروری وجود ندارد: $1"
+              errors=$((errors+1))
+            fi
+          }
+
+          # فایل‌های ریشه
+          check_file "Book1.xlsx"
+          check_file "setup.py"
+          check_file "src/__init__.py"
+          check_file "src/main.py"
+          check_file "src/utils.py"
+
+          # هستهٔ جدید
+          check_file "src/token.py"
+          check_file "src/core/__init__.py"
+          check_file "src/core/token.py"
+          check_file "src/core/context.py"
+          check_file "src/core/rule_base.py"
+          check_file "src/core/processor.py"
+          check_file "src/core/pipeline.py"
+
+          # واردکننده‌ها
+          check_file "src/core/importers/__init__.py"
+          check_file "src/core/importers/data_importer.py"
+          check_file "src/core/importers/m1_importer.py"
+          check_file "src/core/importers/m2_m5_importer.py"
+          check_file "src/core/importers/special_checker.py"
+
+          # قوانین
+          check_dir "src/rules"
+          check_dir "src/rules/m1"
+          check_dir "src/rules/m2"
+          check_dir "src/rules/m3"
+          check_dir "src/rules/m4"
+          check_dir "src/rules/m5"
+          check_dir "src/rules/special"
+
+          # utils
+          check_dir "src/utils"
+
+          # ورودی
           if [ ! -d "data/input" ] || [ -z "$(ls -A data/input/*.txt 2>/dev/null)" ]; then
             echo "❌ هیچ فایل متنی در data/input/ وجود ندارد!"
-            exit 1
+            errors=$((errors+1))
           fi
 
-      - name: 🔍 بررسی استایل با flake8 (فقط هشدار، بدون شکست)
+          if [ $errors -gt 0 ]; then
+            echo "❌ $errors خطا در ساختار پروژه."
+            exit 1
+          fi
+          echo "✅ ساختار پروژه معتبر است."
+
+      - name: 🔍 بررسی import پکیج‌ها (sanity check)
+        env:
+          PYTHONPATH: .
+        run: |
+          python -c "from src.core import Token, Context, Rule, RuleRegistry, Processor, Pipeline; print('✅ core OK')"
+          python -c "from src.core.importers import build_context, import_m1_rules, import_m2_to_m5, import_special_rules; print('✅ importers OK')"
+          python -c "from src.utils import setup_nltk; print('✅ utils OK')"
+
+      - name: 🔍 بررسی استایل با flake8 (فقط هشدار)
         run: |
           flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
         continue-on-error: true
 
-      - name: 🧪 اجرای تست‌های واحد (در صورت وجود)
+      # ============================================================
+      # 🧪 تست‌ها — دیگر continue-on-error ندارند
+      # ============================================================
+      - name: 🧪 تست‌های Core
         env:
           PYTHONPATH: .
         run: |
-          if [ -d "tests" ] && [ "$(ls -A tests/*.py 2>/dev/null)" ]; then
-            pytest tests/ -v
+          if [ -d "tests/test_core" ] && [ "$(ls -A tests/test_core/*.py 2>/dev/null)" ]; then
+            pytest tests/test_core/ -v
           else
-            echo "⚠️ تست‌های واحدی یافت نشد، رد می‌شود."
+            echo "⚠️ تست‌های core یافت نشد."
           fi
-        continue-on-error: true
+
+      - name: 🧪 تست‌های Importers
+        env:
+          PYTHONPATH: .
+        run: |
+          if [ -d "tests/test_importers" ] && [ "$(ls -A tests/test_importers/*.py 2>/dev/null)" ]; then
+            pytest tests/test_importers/ -v
+          else
+            echo "⚠️ تست‌های importers یافت نشد."
+          fi
+
+      - name: 🧪 تست‌های Rules
+        env:
+          PYTHONPATH: .
+        run: |
+          if [ -d "tests/test_rules" ] && [ "$(ls -A tests/test_rules/*.py 2>/dev/null)" ]; then
+            pytest tests/test_rules/ -v
+          else
+            echo "⚠️ تست‌های rules یافت نشد."
+          fi
+
+      - name: 🧪 تست‌های عمومی
+        env:
+          PYTHONPATH: .
+        run: |
+          if [ -f "tests/test_processor.py" ]; then
+            pytest tests/test_processor.py -v
+          fi
 
       # ============================================================
       # 🏃 پردازش همه‌ی فایل‌های input
@@ -83,49 +188,35 @@ jobs:
           PYTHONPATH: .
         run: |
           mkdir -p data/output
-          
-          # پردازش هر فایل .txt در data/input
           found_any=false
+
           for input_file in data/input/*.txt; do
             if [ -f "$input_file" ]; then
               found_any=true
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
               echo "📄 در حال پردازش: $input_file"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-              
+
+              # 🆕 مسیر src/main.py حفظ شده
               python src/main.py "$input_file"
-              
-              # نام‌گذاری خروجی بر اساس نام فایل ورودی
+
               base=$(basename "$input_file" .txt)
-              if [ -f "data/output/output.xlsx" ]; then
-                mv data/output/output.xlsx "data/output/output_${base}.xlsx"
-                echo "✅ خروجی اکسل: output_${base}.xlsx"
-              fi
-              if [ -f "data/output/output.txt" ]; then
-                mv data/output/output.txt "data/output/output_${base}.txt"
-                echo "✅ خروجی متنی: output_${base}.txt"
-              fi
+              [ -f "data/output/output.xlsx" ] && mv data/output/output.xlsx "data/output/output_${base}.xlsx"
+              [ -f "data/output/output.txt" ] && mv data/output/output.txt "data/output/output_${base}.txt"
             fi
           done
-          
+
           if [ "$found_any" = false ]; then
             echo "❌ هیچ فایل متنی‌ای پیدا نشد!"
             exit 1
           fi
-          
-          # بررسی نهایی
-          if ls data/output/output_* 1> /dev/null 2>&1; then
-            echo ""
-            echo "✅ همه‌ی فایل‌ها با موفقیت پردازش شدند."
-            ls -la data/output/
-          else
+
+          if ! ls data/output/output_* 1> /dev/null 2>&1; then
             echo "❌ هیچ خروجی‌ای ساخته نشد!"
             exit 1
           fi
+          echo "✅ پردازش با موفقیت انجام شد."
 
-      # ============================================================
-      # 🗑️ حذف آرتیفکت‌های قبلی output-python
-      # ============================================================
       - name: 🗑️ حذف آرتیفکت‌های قبلی پایتون
         if: matrix.python-version == '3.10'
         uses: actions/github-script@v7
@@ -133,16 +224,12 @@ jobs:
           script: |
             const artifactName = 'output-python';
             const artifacts = await github.rest.actions.listArtifactsForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 100
+              owner: context.repo.owner, repo: context.repo.repo, per_page: 100
             });
             for (const artifact of artifacts.data.artifacts) {
               if (artifact.name === artifactName) {
-                console.log(`🗑️ حذف: ${artifact.name} (id: ${artifact.id})`);
                 await github.rest.actions.deleteArtifact({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
+                  owner: context.repo.owner, repo: context.repo.repo,
                   artifact_id: artifact.id
                 });
               }
@@ -153,13 +240,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: output-python
-          path: |
-            data/output/output_*
+          path: data/output/output_*
           retention-days: 7
           if-no-files-found: warn
 
   # ============================================================
-  # Job داکر
+  # Job داکر — بدون تغییر اساسی
   # ============================================================
   docker-test:
     name: تست داکر
@@ -168,48 +254,34 @@ jobs:
     if: success()
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: ساخت ایمیج
         run: docker build -f docker/Dockerfile -t text-processor .
-      
+
       - name: 🏃 پردازش همه‌ی فایل‌های input با داکر
         run: |
           mkdir -p data/output
-          
           found_any=false
+
           for input_file in data/input/*.txt; do
             if [ -f "$input_file" ]; then
               found_any=true
-              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-              echo "🐳 داکر در حال پردازش: $input_file"
-              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-              
               docker run --rm \
                 -v "$(pwd)/data:/app/data" \
                 -v "$(pwd)/Book1.xlsx:/app/Book1.xlsx" \
                 text-processor "$input_file"
-              
+
               base=$(basename "$input_file" .txt)
-              if [ -f "data/output/output.xlsx" ]; then
-                mv data/output/output.xlsx "data/output/docker_output_${base}.xlsx"
-              fi
-              if [ -f "data/output/output.txt" ]; then
-                mv data/output/output.txt "data/output/docker_output_${base}.txt"
-              fi
+              [ -f "data/output/output.xlsx" ] && mv data/output/output.xlsx "data/output/docker_output_${base}.xlsx"
+              [ -f "data/output/output.txt" ] && mv data/output/output.txt "data/output/docker_output_${base}.txt"
             fi
           done
-          
+
           if [ "$found_any" = false ]; then
-            echo "❌ هیچ فایل متنی‌ای پیدا نشد!"
-            exit 1
+            echo "❌ هیچ فایل متنی‌ای پیدا نشد!"; exit 1
           fi
-          
-          if ls data/output/docker_output_* 1> /dev/null 2>&1; then
-            echo "✅ داکر همه‌ی فایل‌ها رو پردازش کرد."
-            ls -la data/output/
-          else
-            echo "❌ هیچ خروجی‌ای از داکر نیامد!"
-            exit 1
+          if ! ls data/output/docker_output_* 1> /dev/null 2>&1; then
+            echo "❌ هیچ خروجی‌ای از داکر نیامد!"; exit 1
           fi
 
       - name: 🗑️ حذف آرتیفکت‌های قبلی داکر
@@ -218,16 +290,12 @@ jobs:
           script: |
             const artifactName = 'output-docker';
             const artifacts = await github.rest.actions.listArtifactsForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 100
+              owner: context.repo.owner, repo: context.repo.repo, per_page: 100
             });
             for (const artifact of artifacts.data.artifacts) {
               if (artifact.name === artifactName) {
-                console.log(`🗑️ حذف: ${artifact.name} (id: ${artifact.id})`);
                 await github.rest.actions.deleteArtifact({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
+                  owner: context.repo.owner, repo: context.repo.repo,
                   artifact_id: artifact.id
                 });
               }
@@ -238,7 +306,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: output-docker
-          path: |
-            data/output/docker_output_*
+          path: data/output/docker_output_*
           retention-days: 7
           if-no-files-found: warn
