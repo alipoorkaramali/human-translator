@@ -1,0 +1,73 @@
+# =============================================================================
+# .dockerignore — حذف فایلهای غیرضروری از build context
+# =============================================================================
+
+# ---------- Git ----------
+.git
+.gitignore
+.gitattributes
+.github
+
+# ---------- Python virtualenvs ----------
+.venv
+venv
+env
+ENV
+
+# ---------- Python cache ----------
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ---------- Test / Lint cache ----------
+.pytest_cache/
+.mypy_cache/
+.flake8_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+
+# ---------- NLTK data ----------
+nltk_data/
+
+# ---------- Project data ----------
+data/output/
+data/input/
+*.xlsx
+!Book1.xlsx
+
+# ---------- IDE / Editor ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+
+# ---------- Logs & temp ----------
+*.log
+logs/
+tmp/
+temp/
+
+# ---------- Env / secrets ----------
+.env
+.env.*
+*.pem
+*.key
+
+# ---------- Tests (لازم نیست در ایمیج runtime باشند) ----------
+tests/
+
+# ---------- Scripts (اختیاری — چون در Dockerfile کپی میشوند، اینجا فقط برای کاهش context) ----------
+# scripts/ را ignore نکن چون Dockerfile از آن استفاده میکند
