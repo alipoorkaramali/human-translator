@@ -15,18 +15,37 @@ from pathlib import Path
 # تنظیمات اولیه NLTK
 # =============================================================================
 def setup_nltk():
+    """
+    بررسی می‌کنه که دیتاهای NLTK موجود هستن یا نه.
+    اگه نبودن، فقط یه هشدار می‌ده (چون توی داکر دیتا از قبل هست).
+    """
+    # اضافه کردن مسیر NLTK_DATA
+    import os
+    nltk_path = os.environ.get('NLTK_DATA', '/usr/share/nltk_data')
+    if os.path.exists(nltk_path) and nltk_path not in nltk.data.path:
+        nltk.data.path.insert(0, nltk_path)
+        logging.info(f"مسیر NLTK_DATA اضافه شد: {nltk_path}")
+
     required_packages = ['punkt', 'wordnet', 'cmudict']
     missing_packages = []
+
     for package in required_packages:
         try:
             nltk.data.find(f'tokenizers/{package}' if package == 'punkt' else f'corpora/{package}')
+            logging.info(f"✅ {package} موجود است.")
         except LookupError:
             missing_packages.append(package)
-    if missing_packages:
-        logging.info(f"دانلود دیتاهای NLTK: {', '.join(missing_packages)}")
-        for package in missing_packages:
-            nltk.download(package, quiet=True)
 
+    if missing_packages:
+        logging.warning(f"⚠️ دیتاهای زیر پیدا نشدند: {', '.join(missing_packages)}")
+        logging.warning("سعی می‌کنم دانلود کنم...")
+        for package in missing_packages:
+            try:
+                nltk.download(package, quiet=True)
+            except Exception as e:
+                logging.error(f"دانلود {package} ناموفق بود: {e}")
+    else:
+        logging.info("✅ همه‌ی دیتاهای NLTK موجود هستند.")
 # =============================================================================
 # مدیریت فایل و مسیرها
 # =============================================================================

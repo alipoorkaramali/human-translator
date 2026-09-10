@@ -14,9 +14,11 @@ from src.utils import (
 )
 from src.rules import apply_all_rules
 
-nltk.download('punkt', quiet=True)
-nltk.download('wordnet', quiet=True)
-nltk.download('cmudict', quiet=True)
+import os
+# اضافه کردن مسیر NLTK_DATA به لیست جستجوی NLTK
+_nltk_path = os.environ.get('NLTK_DATA', '/usr/share/nltk_data')
+if os.path.exists(_nltk_path) and _nltk_path not in nltk.data.path:
+    nltk.data.path.insert(0, _nltk_path)
 
 _cmu = cmudict.dict()
 

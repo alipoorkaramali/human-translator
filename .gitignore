@@ -25,3 +25,4 @@ desktop.ini
 # لاگ‌ها و فایل‌های موقت
 *.log
 *.tmp
+nltk_data/ 
