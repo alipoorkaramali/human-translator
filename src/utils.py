@@ -11,16 +11,12 @@ from nltk.corpus import wordnet as wn
 from nltk.corpus import cmudict
 from pathlib import Path
 
+
 # =============================================================================
-# تنظیمات اولیه NLTK
+# NLTK setup
 # =============================================================================
 def setup_nltk():
-    """
-    بررسی می‌کنه که دیتاهای NLTK موجود هستن یا نه.
-    اگه نبودن، فقط یه هشدار می‌ده (چون توی داکر دیتا از قبل هست).
-    """
-    # اضافه کردن مسیر NLTK_DATA
-    import os
+    """بررسی و آماده‌سازی دیتاهای NLTK."""
     nltk_path = os.environ.get('NLTK_DATA', '/usr/share/nltk_data')
     if os.path.exists(nltk_path) and nltk_path not in nltk.data.path:
         nltk.data.path.insert(0, nltk_path)
@@ -31,14 +27,14 @@ def setup_nltk():
 
     for package in required_packages:
         try:
-            nltk.data.find(f'tokenizers/{package}' if package == 'punkt' else f'corpora/{package}')
+            nltk.data.find(f'tokenizers/{package}' if package == 'punkt'
+                           else f'corpora/{package}')
             logging.info(f"✅ {package} موجود است.")
         except LookupError:
             missing_packages.append(package)
 
     if missing_packages:
         logging.warning(f"⚠️ دیتاهای زیر پیدا نشدند: {', '.join(missing_packages)}")
-        logging.warning("سعی می‌کنم دانلود کنم...")
         for package in missing_packages:
             try:
                 nltk.download(package, quiet=True)
@@ -46,11 +42,13 @@ def setup_nltk():
                 logging.error(f"دانلود {package} ناموفق بود: {e}")
     else:
         logging.info("✅ همه‌ی دیتاهای NLTK موجود هستند.")
+
+
 # =============================================================================
 # مدیریت فایل و مسیرها
 # =============================================================================
 def ensure_dir(path):
-    if not os.path.exists(path):
+    if path and not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
         logging.info(f"پوشه ساخته شد: {path}")
     return path
@@ -80,10 +78,12 @@ def setup_logging(level=logging.INFO, log_file=None):
         handlers.append(logging.FileHandler(log_file, encoding='utf-8'))
     logging.basicConfig(level=level, format=log_format, handlers=handlers)
 
+
 # =============================================================================
-# توابع کمکی پردازش متن (که قبلاً در processor.py بودند)
+# توابع کمکی پردازش متن
 # =============================================================================
-PUNCTUATION = {".", ",", "!", "?", ";", ":", "…", "—", "–", ")", "(", "[", "]", "{", "}", "«", "»"}
+PUNCTUATION = {".", ",", "!", "?", ";", ":", "…", "—", "–",
+               ")", "(", "[", "]", "{", "}", "«", "»"}
 
 def is_punctuation(token):
     return token in PUNCTUATION
@@ -97,7 +97,8 @@ def is_possessive_or_s(word):
     w = str(word).lower().strip()
     if w.endswith("'s") or w.endswith("s'"):
         return True
-    poss = {'my', 'your', 'his', 'her', 'its', 'our', 'their', 'mine', 'yours', 'hers', 'ours', 'theirs'}
+    poss = {'my', 'your', 'his', 'her', 'its', 'our', 'their',
+            'mine', 'yours', 'hers', 'ours', 'theirs'}
     return w in poss
 
 def is_np_boundary(token):
@@ -108,8 +109,9 @@ def is_np_boundary(token):
         return True
     if re.search(r'[.!?;:—]$', t):
         return True
-    preps = {'in', 'on', 'at', 'by', 'with', 'from', 'to', 'for', 'about', 'under', 'over',
-             'between', 'among', 'during', 'before', 'after', 'since', 'until', 'into', 'onto'}
+    preps = {'in', 'on', 'at', 'by', 'with', 'from', 'to', 'for', 'about',
+             'under', 'over', 'between', 'among', 'during', 'before',
+             'after', 'since', 'until', 'into', 'onto'}
     if t in preps:
         return True
     if t in {'and', 'but', 'or', 'nor', 'yet', 'so'}:
@@ -127,7 +129,9 @@ def is_cardinal_word(word, cardinal_numbers):
 
 def is_ordinal_word(word, ordinal_numbers):
     w = word.lower()
-    return (w in ordinal_numbers or re.match(r'^\d+(st|nd|rd|th)$', w) or w in ['st', 'nd', 'rd', 'th'])
+    return (w in ordinal_numbers or
+            re.match(r'^\d+(st|nd|rd|th)$', w) or
+            w in ['st', 'nd', 'rd', 'th'])
 
 def number_type(word, cardinal_numbers, ordinal_numbers):
     if not word:
@@ -146,24 +150,33 @@ def number_type(word, cardinal_numbers, ordinal_numbers):
         if all(is_cardinal_word(p, cardinal_numbers) or is_and_word(p) for p in parts):
             return 'cardinal'
     lowered = word.lower()
-    if ('/' in lowered or any(kw in lowered for kw in ['half', 'third', 'quarter', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth', 'hundredth', 'thousandth'])):
+    if ('/' in lowered or any(kw in lowered for kw in
+            ['half', 'third', 'quarter', 'fourth', 'fifth', 'sixth',
+             'seventh', 'eighth', 'ninth', 'tenth', 'hundredth', 'thousandth'])):
         return 'cardinal'
     return None
 
+
+# ---------- cmudict با کش (برای سرعت) ----------
+_CMU_CACHE = None
+
+def _get_cmu():
+    global _CMU_CACHE
+    if _CMU_CACHE is None:
+        _CMU_CACHE = cmudict.dict()
+    return _CMU_CACHE
+
 def syllable_count(word):
-    from nltk.corpus import cmudict
-    _cmu = cmudict.dict()
     w = word.lower()
     w_clean = re.sub(r"[^\w'-]", '', w)
     try:
-        pron = _cmu[w_clean][0]
+        pron = _get_cmu()[w_clean][0]
         return sum(1 for p in pron if re.search(r'\d', p))
-    except:
+    except (KeyError, IndexError):
         return max(1, len(re.findall(r'[aeiouy]+', w_clean, re.I)))
 
+
 def is_uncountable_noun(word, ctx=None):
-    if ctx is None:
-        ctx = {}
     w = word.lower().strip()
     common_uncountables = {
         'water', 'time', 'money', 'information', 'news', 'furniture', 'advice',
@@ -175,28 +188,52 @@ def is_uncountable_noun(word, ctx=None):
     }
     if w in common_uncountables:
         return True
-    if ctx.get('vague_quant_set') and w in ctx['vague_quant_set']:
-        return True
+
+    # پشتیبانی از Context جدید و dict قدیمی
+    if ctx is not None:
+        vq = ctx.get('vague_quant_set') if hasattr(ctx, 'get') else None
+        if vq and w in vq:
+            return True
+
     syns = wn.synsets(w, pos='n')
     if not syns:
         return False
     for syn in syns:
         definition = syn.definition().lower()
-        if any(phrase in definition for phrase in ['amount of', 'quantity of', 'mass of', 'substance', 'uncountable', 'mass noun']):
+        if any(phrase in definition for phrase in
+               ['amount of', 'quantity of', 'mass of', 'substance',
+                'uncountable', 'mass noun']):
             return True
         for hyper_path in syn.hypernym_paths():
             for hyper in hyper_path:
-                hyper_name = hyper.name()
-                if 'substance.n.01' in hyper_name or 'abstraction.n.06' in hyper_name:
+                name = hyper.name()
+                if 'substance.n.01' in name or 'abstraction.n.06' in name:
                     return True
     if wn.synsets(w + 's', pos='n') == [] and syns:
         return True
     return False
 
+
 def separate_punct_except_apostrophe(text):
-    """جدا کردن علائم نگارشی به جز آپوستروف"""
+    """جدا کردن علائم نگارشی به جز آپوستروف."""
     pattern = r"([A-Za-z0-9])([.,!?;:\(\)\[\]\{\}«»…—–])"
     text = re.sub(pattern, r"\1 \2", text)
     pattern = r"([.,!?;:\(\)\[\]\{\}«»…—–])([A-Za-z0-9])"
     text = re.sub(pattern, r"\1 \2", text)
     return text
+
+
+# =============================================================================
+# 🆕 توابع جدید برای Pipeline
+# =============================================================================
+def preprocess_text(text):
+    """سه مرحلهٔ نرمال‌سازی متن قبل از توکن‌سازی."""
+    text = separate_punct_except_apostrophe(text)
+    text = re.sub(r'([.!?])([a-zA-Z])', r'\1 \2', text)
+    text = re.sub(r"(\w)'s\b", r"\1 's", text)  # normalize possessives
+    return text
+
+
+def tokenize_english(text):
+    """توکن‌سازی انگلیسی با حفظ 's و s' در انتها."""
+    return re.findall(r"\w+(?:['’]s|s')|\S+", text)
