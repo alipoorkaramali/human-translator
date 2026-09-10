@@ -3,6 +3,11 @@ name: CI - تست و بررسی
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# دسترسی نوشتن به actions برای حذف Artifactهای قبلی
+permissions:
+  actions: write
+  contents: read
+
 on:
   push:
     branches: [ main, develop ]
@@ -94,6 +99,31 @@ jobs:
             exit 1
           fi
 
+      # ============================================================
+      # 🗑️ حذف آرتیفکت‌های قبلی output-python (فقط یک بار روی 3.10)
+      # ============================================================
+      - name: 🗑️ حذف آرتیفکت‌های قبلی پایتون
+        if: matrix.python-version == '3.10'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifactName = 'output-python';
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            for (const artifact of artifacts.data.artifacts) {
+              if (artifact.name === artifactName) {
+                console.log(`🗑️ حذف آرتیفکت قدیمی: ${artifact.name} (id: ${artifact.id})`);
+                await github.rest.actions.deleteArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: artifact.id
+                });
+              }
+            }
+
       - name: 📤 آپلود خروجی پایتون (فقط Python 3.10)
         if: always() && matrix.python-version == '3.10'
         uses: actions/upload-artifact@v4
@@ -131,6 +161,30 @@ jobs:
             echo "❌ خروجی اکسل ساخته نشد!"
             exit 1
           fi
+
+      # ============================================================
+      # 🗑️ حذف آرتیفکت‌های قبلی output-docker
+      # ============================================================
+      - name: 🗑️ حذف آرتیفکت‌های قبلی داکر
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifactName = 'output-docker';
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            for (const artifact of artifacts.data.artifacts) {
+              if (artifact.name === artifactName) {
+                console.log(`🗑️ حذف آرتیفکت قدیمی: ${artifact.name} (id: ${artifact.id})`);
+                await github.rest.actions.deleteArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: artifact.id
+                });
+              }
+            }
 
       - name: 📤 آپلود خروجی داکر
         if: always()
