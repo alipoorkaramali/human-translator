@@ -1,5 +1,8 @@
 name: CI - تست و بررسی
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [ main, develop ]
@@ -72,14 +75,11 @@ jobs:
         env:
           PYTHONPATH: .
         run: |
-          # ساخت فایل نمونه (یکسان برای همه)
           mkdir -p data/input data/output
           echo "This is a CI test. It has two sentences. Hello world!" > data/input/ci_test.txt
           
-          # اجرا
           python src/main.py data/input/ci_test.txt
           
-          # بررسی خروجی
           if [ -f "data/output/output.xlsx" ]; then
             echo "✅ خروجی اکسل ساخته شد."
           else
@@ -94,9 +94,6 @@ jobs:
             exit 1
           fi
 
-      # ============================================================
-      # 📤 آپلود خروجی پایتون — فقط یک بار (روی Python 3.10)
-      # ============================================================
       - name: 📤 آپلود خروجی پایتون (فقط Python 3.10)
         if: always() && matrix.python-version == '3.10'
         uses: actions/upload-artifact@v4
@@ -108,9 +105,6 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-  # ============================================================
-  # Job داکر
-  # ============================================================
   docker-test:
     name: تست داکر
     runs-on: ubuntu-latest
@@ -138,9 +132,6 @@ jobs:
             exit 1
           fi
 
-      # ============================================================
-      # 📤 آپلود خروجی داکر
-      # ============================================================
       - name: 📤 آپلود خروجی داکر
         if: always()
         uses: actions/upload-artifact@v4
