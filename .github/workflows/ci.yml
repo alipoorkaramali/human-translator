@@ -3,7 +3,6 @@ name: CI - تست و بررسی
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-# دسترسی نوشتن به actions برای حذف Artifactهای قبلی
 permissions:
   actions: write
   contents: read
@@ -11,8 +10,12 @@ permissions:
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - 'data/input/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'data/input/**'
 
 jobs:
   test:
@@ -43,20 +46,16 @@ jobs:
 
       - name: 🔍 بررسی وجود فایل‌های ضروری
         run: |
-          echo "📁 بررسی فایل‌ها..."
-          ls -la
-          echo "📄 بررسی Book1.xlsx..."
-          if [ -f "Book1.xlsx" ]; then
-            echo "✅ Book1.xlsx وجود دارد."
-          else
-            echo "❌ Book1.xlsx وجود ندارد! لطفاً آن را به مخزن اضافه کنید."
+          if [ ! -f "Book1.xlsx" ]; then
+            echo "❌ Book1.xlsx وجود ندارد!"
             exit 1
           fi
-          echo "📂 بررسی src/__init__.py..."
-          if [ -f "src/__init__.py" ]; then
-            echo "✅ src/__init__.py وجود دارد."
-          else
+          if [ ! -f "src/__init__.py" ]; then
             echo "❌ src/__init__.py وجود ندارد!"
+            exit 1
+          fi
+          if [ ! -d "data/input" ] || [ -z "$(ls -A data/input/*.txt 2>/dev/null)" ]; then
+            echo "❌ هیچ فایل متنی در data/input/ وجود ندارد!"
             exit 1
           fi
 
@@ -76,31 +75,56 @@ jobs:
           fi
         continue-on-error: true
 
-      - name: 🏃 اجرای اصلی برنامه (Smoke Test)
+      # ============================================================
+      # 🏃 پردازش همه‌ی فایل‌های input
+      # ============================================================
+      - name: 🏃 پردازش همه‌ی فایل‌های data/input/
         env:
           PYTHONPATH: .
         run: |
-          mkdir -p data/input data/output
-          echo "This is a CI test. It has two sentences. Hello world!" > data/input/ci_test.txt
+          mkdir -p data/output
           
-          python src/main.py data/input/ci_test.txt
+          # پردازش هر فایل .txt در data/input
+          found_any=false
+          for input_file in data/input/*.txt; do
+            if [ -f "$input_file" ]; then
+              found_any=true
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "📄 در حال پردازش: $input_file"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              python src/main.py "$input_file"
+              
+              # نام‌گذاری خروجی بر اساس نام فایل ورودی
+              base=$(basename "$input_file" .txt)
+              if [ -f "data/output/output.xlsx" ]; then
+                mv data/output/output.xlsx "data/output/output_${base}.xlsx"
+                echo "✅ خروجی اکسل: output_${base}.xlsx"
+              fi
+              if [ -f "data/output/output.txt" ]; then
+                mv data/output/output.txt "data/output/output_${base}.txt"
+                echo "✅ خروجی متنی: output_${base}.txt"
+              fi
+            fi
+          done
           
-          if [ -f "data/output/output.xlsx" ]; then
-            echo "✅ خروجی اکسل ساخته شد."
-          else
-            echo "❌ خروجی اکسل ساخته نشد!"
+          if [ "$found_any" = false ]; then
+            echo "❌ هیچ فایل متنی‌ای پیدا نشد!"
             exit 1
           fi
           
-          if [ -f "data/output/output.txt" ]; then
-            echo "✅ خروجی متنی ساخته شد."
+          # بررسی نهایی
+          if ls data/output/output_* 1> /dev/null 2>&1; then
+            echo ""
+            echo "✅ همه‌ی فایل‌ها با موفقیت پردازش شدند."
+            ls -la data/output/
           else
-            echo "❌ خروجی متنی ساخته نشد!"
+            echo "❌ هیچ خروجی‌ای ساخته نشد!"
             exit 1
           fi
 
       # ============================================================
-      # 🗑️ حذف آرتیفکت‌های قبلی output-python (فقط یک بار روی 3.10)
+      # 🗑️ حذف آرتیفکت‌های قبلی output-python
       # ============================================================
       - name: 🗑️ حذف آرتیفکت‌های قبلی پایتون
         if: matrix.python-version == '3.10'
@@ -115,7 +139,7 @@ jobs:
             });
             for (const artifact of artifacts.data.artifacts) {
               if (artifact.name === artifactName) {
-                console.log(`🗑️ حذف آرتیفکت قدیمی: ${artifact.name} (id: ${artifact.id})`);
+                console.log(`🗑️ حذف: ${artifact.name} (id: ${artifact.id})`);
                 await github.rest.actions.deleteArtifact({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
@@ -130,11 +154,13 @@ jobs:
         with:
           name: output-python
           path: |
-            data/output/output.xlsx
-            data/output/output.txt
+            data/output/output_*
           retention-days: 7
           if-no-files-found: warn
 
+  # ============================================================
+  # Job داکر
+  # ============================================================
   docker-test:
     name: تست داکر
     runs-on: ubuntu-latest
@@ -146,25 +172,46 @@ jobs:
       - name: ساخت ایمیج
         run: docker build -f docker/Dockerfile -t text-processor .
       
-      - name: اجرا با داکر (ورودی یکسان با پایتون)
+      - name: 🏃 پردازش همه‌ی فایل‌های input با داکر
         run: |
-          mkdir -p data/input data/output
-          echo "This is a CI test. It has two sentences. Hello world!" > data/input/ci_test.txt
-          docker run --rm \
-            -v "$(pwd)/data:/app/data" \
-            -v "$(pwd)/Book1.xlsx:/app/Book1.xlsx" \
-            text-processor data/input/ci_test.txt
+          mkdir -p data/output
           
-          if [ -f "data/output/output.xlsx" ]; then
-            echo "✅ داکر موفق بود - خروجی اکسل ساخته شد."
+          found_any=false
+          for input_file in data/input/*.txt; do
+            if [ -f "$input_file" ]; then
+              found_any=true
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "🐳 داکر در حال پردازش: $input_file"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              docker run --rm \
+                -v "$(pwd)/data:/app/data" \
+                -v "$(pwd)/Book1.xlsx:/app/Book1.xlsx" \
+                text-processor "$input_file"
+              
+              base=$(basename "$input_file" .txt)
+              if [ -f "data/output/output.xlsx" ]; then
+                mv data/output/output.xlsx "data/output/docker_output_${base}.xlsx"
+              fi
+              if [ -f "data/output/output.txt" ]; then
+                mv data/output/output.txt "data/output/docker_output_${base}.txt"
+              fi
+            fi
+          done
+          
+          if [ "$found_any" = false ]; then
+            echo "❌ هیچ فایل متنی‌ای پیدا نشد!"
+            exit 1
+          fi
+          
+          if ls data/output/docker_output_* 1> /dev/null 2>&1; then
+            echo "✅ داکر همه‌ی فایل‌ها رو پردازش کرد."
+            ls -la data/output/
           else
-            echo "❌ خروجی اکسل ساخته نشد!"
+            echo "❌ هیچ خروجی‌ای از داکر نیامد!"
             exit 1
           fi
 
-      # ============================================================
-      # 🗑️ حذف آرتیفکت‌های قبلی output-docker
-      # ============================================================
       - name: 🗑️ حذف آرتیفکت‌های قبلی داکر
         uses: actions/github-script@v7
         with:
@@ -177,7 +224,7 @@ jobs:
             });
             for (const artifact of artifacts.data.artifacts) {
               if (artifact.name === artifactName) {
-                console.log(`🗑️ حذف آرتیفکت قدیمی: ${artifact.name} (id: ${artifact.id})`);
+                console.log(`🗑️ حذف: ${artifact.name} (id: ${artifact.id})`);
                 await github.rest.actions.deleteArtifact({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
@@ -192,7 +239,6 @@ jobs:
         with:
           name: output-docker
           path: |
-            data/output/output.xlsx
-            data/output/output.txt
+            data/output/docker_output_*
           retention-days: 7
           if-no-files-found: warn
