@@ -2,13 +2,8 @@
 import pytest
 from src.ht_token import Token
 
-MoreMostRule = pytest.importorskip(
-    "src.rules.m2.more_most_rule", reason="rule not yet implemented"
-)
 
-pytestmark = pytest.mark.skipif(True, reason="m2 rules not fully implemented yet")
-
-
-def test_placeholder():
-    t = Token("more")
-    assert t.word == "more"
+def test_more_most_placeholder():
+    from src.rules.np.m2.more_most_rule import MoreMostRule
+    r = MoreMostRule()
+    assert r.target_label == "m2"

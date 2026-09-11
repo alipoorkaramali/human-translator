@@ -2,16 +2,15 @@
 import pytest
 from src.ht_token import Token
 
-# skipif در سطح ماژول
 SomeNumberRule = pytest.importorskip(
-    "src.rules.m1.some_number_rule", reason="rule not yet implemented"
-).SomeNumberRule if False else None
-
-pytestmark = pytest.mark.skipif(
-    True, reason="m1 rules not fully implemented yet"
+    "src.rules.np.m1.some_number_rule", reason="rule not yet implemented"
 )
 
+pytestmark = pytest.mark.skipif(False, reason="")
 
-def test_placeholder():
-    t = Token("some")
-    assert t.word == "some"
+
+def test_some_number_rule_exists():
+    from src.rules.np.m1.some_number_rule import SomeNumberRule as R
+    r = R()
+    assert r.target_label == "m1"
+    assert r.name == "some_number"
