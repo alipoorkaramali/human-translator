@@ -11,109 +11,55 @@ from typing import List, Optional
 
 import pandas as pd
 
-from ..token import Token                    # ← اصلاح شد (دو نقطه)
+from ..ht_token import Token                    # ← اصلاح شد (دو نقطه)
 from .context import Context                 # ← همان core/
 from .rule_base import RuleRegistry          # ← همان core/
 
 
 class Processor:
     """
-    موتور اصلی اجرای قوانین روی توکن‌ها.
-
-    مثال:
-        processor = Processor(ctx, registry)
-        processor.load(words, labels, numtypes)
-        processor.run_all()
-        df = processor.to_dataframe()
+    موتور اصلی: توکن‌ها را می‌گیرد و قوانین را روی آن‌ها اجرا می‌کند.
     """
 
-    # ترتیب اجرای فازها — همین ترتیب مهم است
-    PHASES = ['m1', 'm2', 'm3', 'm4', 'm5', 'special']
+    MAX_ITER_PER_PHASE = 5
 
-    # -------------------------------------------------------------------------
-    def __init__(self, context: Context, registry: RuleRegistry):
-        self.ctx = context
+    def __init__(self, ctx: Context, registry: RuleRegistry):
+        self.ctx = ctx
         self.registry = registry
         self.tokens: List[Token] = []
 
-    # -------------------------------------------------------------------------
-    # بارگذاری توکن‌ها
-    # -------------------------------------------------------------------------
-    def load(self,
-             words: List[str],
-             labels: Optional[List[str]] = None,
-             numtypes: Optional[List[str]] = None) -> None:
-        """سه لیست موازی را به لیست Token تبدیل می‌کند."""
-        self.tokens = []
-        for i, w in enumerate(words):
-            lbl = labels[i]   if labels   and i < len(labels)   else ''
-            nt  = numtypes[i] if numtypes and i < len(numtypes) else ''
-            self.tokens.append(Token(word=w, label=lbl,
-                                     numtype=nt, index=i))
-
-    # -------------------------------------------------------------------------
-    # اجرای یک فاز مشخص تا ثبات
-    # -------------------------------------------------------------------------
-    def run_phase(self, phase: str, max_iter: int = 8) -> bool:
+    # ------------------------------------------------------------------
+    def run_phase(self, phase: str) -> int:
         """
-        قوانین یک فاز را تا ثبات (یا max_iter) اجرا می‌کند.
-        خروجی: True اگر حداقل یک تغییر رخ داده باشد.
+        اجرای همه قوانین یک فاز تا وقتی تغییری رخ ندهد
+        یا به MAX_ITER برسد.
+        برمی‌گرداند تعداد کل تغییرها.
         """
         rules = self.registry.by_label(phase)
-        if not rules:
-            return False
+        total_changes = 0
 
-        any_change = False
-        for _ in range(max_iter):
-            changed = False
+        for _ in range(self.MAX_ITER_PER_PHASE):
+            phase_changed = False
             for rule in rules:
-                if rule.apply(self.tokens, self.ctx):
-                    changed = True
-            if not changed:
+                if not rule.enabled:
+                    continue
+                changed = rule.apply(self.tokens, self.ctx)
+                if changed:
+                    phase_changed = True
+                    total_changes += 1
+            if not phase_changed:
                 break
-            any_change = True
-        return any_change
 
-    # -------------------------------------------------------------------------
-    # اجرای کل pipeline (m1 → m5 → special)
-    # -------------------------------------------------------------------------
-    def run_all(self, max_iter_per_phase: int = 8) -> None:
-        """همهٔ فازها را به ترتیب اجرا می‌کند."""
-        for phase in self.PHASES:
-            self.run_phase(phase, max_iter=max_iter_per_phase)
+        return total_changes
 
-    # -------------------------------------------------------------------------
-    # اجرای یک قانون خاص (برای تست)
-    # -------------------------------------------------------------------------
-    def run_rule(self, name: str, max_iter: int = 8) -> bool:
-        """یک Rule مشخص را با نام اجرا می‌کند."""
-        rule = self.registry.by_name(name)
-        any_change = False
-        for _ in range(max_iter):
-            if not rule.apply(self.tokens, self.ctx):
-                break
-            any_change = True
-        return any_change
+    # ------------------------------------------------------------------
+    def run_all(self) -> None:
+        """اجرای همه فازها به ترتیب."""
+        for phase in ['m1', 'm2', 'm3', 'm4', 'm5', 'special']:
+            self.run_phase(phase)
 
-    # -------------------------------------------------------------------------
-    # خروجی
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def to_dataframe(self) -> pd.DataFrame:
-        """لیست Tokenها را به DataFrame تبدیل می‌کند."""
-        return pd.DataFrame([t.to_dict() for t in self.tokens])
-
-    def save(self, path: str = 'data/output/output.xlsx') -> None:
-        """ذخیره خروجی در فایل اکسل."""
-        self.to_dataframe().to_excel(path, index=False, engine='openpyxl')
-
-    # -------------------------------------------------------------------------
-    # کمک‌کننده‌ها (برای دسترسی قوانین)
-    # -------------------------------------------------------------------------
-    def words(self) -> List[str]:
-        return [t.word for t in self.tokens]
-
-    def labels(self) -> List[str]:
-        return [t.label for t in self.tokens]
-
-    def numtypes(self) -> List[str]:
-        return [t.numtype for t in self.tokens]
+        """تبدیل لیست توکن‌ها به DataFrame سازگار با خروجی قبلی."""
+        rows = [t.to_dict() for t in self.tokens]
+        return pd.DataFrame(rows)
