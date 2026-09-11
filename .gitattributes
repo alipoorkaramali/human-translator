@@ -1,2 +1,50 @@
-# Auto detect text files and perform LF normalization
+# =============================================================================
+# .gitattributes — تنظیمات Git برای نرمالسازی خطوط و باینریها
+# =============================================================================
+
+# ---------- تشخیص خودکار برای همه ----------
 * text=auto
+
+# ---------- کد پایتون و متنها: LF ----------
+*.py     text eol=lf
+*.txt    text eol=lf
+*.md     text eol=lf
+*.rst    text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.json   text eol=lf
+*.toml   text eol=lf
+*.cfg    text eol=lf
+*.ini    text eol=lf
+*.sh     text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
+
+# ---------- اسکریپتهای ویندوزی ----------
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
+
+# ---------- باینریها (نباید تبدیل شوند) ----------
+*.xlsx   binary
+*.xls    binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.pdf    binary
+*.zip    binary
+*.gz     binary
+*.whl    binary
+*.so     binary
+*.pyd    binary
+
+# ---------- فایلهای lock و نوتبوکها ----------
+*.ipynb  text eol=lf
+*.lock   text eol=lf
+
+# ---------- مستثنا کردن از export آرشیو ----------
+.github/       export-ignore
+tests/         export-ignore
+.dockerignore  export-ignore
+.gitignore     export-ignore
