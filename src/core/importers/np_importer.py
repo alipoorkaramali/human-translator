@@ -44,6 +44,8 @@ _NP_SPECIAL_RULES = [
     ('src.rules.np.special.the_ordinal', 'TheOrdinalRule'),
     ('src.rules.np.special.final_fix', 'FinalFixAfterNounRule'),
     ('src.rules.np.special.wordnet_finalize', 'WordNetFinalizeRule'),
+    # آخرین اصلاح: بعد از WordNet
+    ('src.rules.np.special.more_after_m1_final_rule', 'MoreAfterM1FinalRule'),
 ]
 
 

@@ -8,6 +8,7 @@ from .law_z import LawZRule
 from .the_ordinal import TheOrdinalRule
 from .final_fix import FinalFixAfterNounRule
 from .wordnet_finalize import WordNetFinalizeRule
+from .more_after_m1_final_rule import MoreAfterM1FinalRule
 
 __all__ = [
     'CompoundResplitRule',
@@ -19,4 +20,5 @@ __all__ = [
     'TheOrdinalRule',
     'FinalFixAfterNounRule',
     'WordNetFinalizeRule',
+    'MoreAfterM1FinalRule',
 ]
