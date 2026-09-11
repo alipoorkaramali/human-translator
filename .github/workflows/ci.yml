@@ -67,9 +67,6 @@ jobs:
             python -m nltk.downloader punkt wordnet cmudict omw-1.4
           fi
 
-      # ============================================================
-      # 🔍 بررسی فایل‌ها و پوشه‌های ضروری (هماهنگ با ساختار فعلی پروژه)
-      # ============================================================
       - name: 🔍 بررسی فایل‌های ضروری
         run: |
           set -e
@@ -156,9 +153,6 @@ jobs:
           fi
           echo "✅ ساختار پروژه معتبر است."
 
-      # ============================================================
-      # 🔍 Sanity check: import پکیج‌های حیاتی
-      # ============================================================
       - name: 🔍 بررسی import پکیج‌ها (sanity check)
         env:
           PYTHONPATH: .
@@ -190,17 +184,11 @@ jobs:
               print(f'⚠️  pipeline هنوز کامل نیست: {e}')
           "
 
-      # ============================================================
-      # 🔍 بررسی استایل با flake8 (فقط هشدار)
-      # ============================================================
       - name: 🔍 بررسی استایل با flake8
         run: |
           flake8 src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
         continue-on-error: true
 
-      # ============================================================
-      # 🧪 تست‌ها — تفکیک‌شده بر اساس زیرپوشه
-      # ============================================================
       - name: 🧪 تست‌های Core
         env:
           PYTHONPATH: .
@@ -245,9 +233,6 @@ jobs:
           fi
         continue-on-error: true
 
-      # ============================================================
-      # 🏃 پردازش همه‌ی فایل‌های input
-      # ============================================================
       - name: 🏃 پردازش همه‌ی فایل‌های data/input/
         env:
           PYTHONPATH: .
@@ -290,9 +275,6 @@ jobs:
             exit 1
           fi
 
-      # ============================================================
-      # 🗑️ حذف آرتیفکت‌های قبلی پایتون
-      # ============================================================
       - name: 🗑️ حذف آرتیفکت‌های قبلی پایتون
         if: matrix.python-version == '3.10'
         uses: actions/github-script@v7
@@ -325,9 +307,6 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-  # ============================================================
-  # Job داکر — بدون تغییر اساسی
-  # ============================================================
   docker-test:
     name: تست داکر
     runs-on: ubuntu-latest
@@ -342,6 +321,8 @@ jobs:
       - name: 🏃 پردازش همه‌ی فایل‌های input با داکر
         run: |
           mkdir -p data/output
+          # اجازه نوشتن روی volume mount (کانتینر با appuser یا root)
+          chmod -R a+rwX data/output
 
           found_any=false
           for input_file in data/input/*.txt; do
@@ -351,7 +332,8 @@ jobs:
               echo "🐳 داکر در حال پردازش: $input_file"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-              docker run --rm \
+              # --user root تا Permission denied روی volume پیش نیاید
+              docker run --rm --user root \
                 -v "$(pwd)/data:/app/data" \
                 -v "$(pwd)/Book1.xlsx:/app/Book1.xlsx" \
                 text-processor "$input_file"
@@ -359,9 +341,11 @@ jobs:
               base=$(basename "$input_file" .txt)
               if [ -f "data/output/output.xlsx" ]; then
                 mv data/output/output.xlsx "data/output/docker_output_${base}.xlsx"
+                echo "✅ خروجی اکسل: docker_output_${base}.xlsx"
               fi
               if [ -f "data/output/output.txt" ]; then
                 mv data/output/output.txt "data/output/docker_output_${base}.txt"
+                echo "✅ خروجی متنی: docker_output_${base}.txt"
               fi
             fi
           done
