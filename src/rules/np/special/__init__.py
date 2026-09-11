@@ -3,6 +3,7 @@ from .compound_resplit_rule import CompoundResplitRule
 from .m1_of_to_n_rule import M1OfToNRule
 from .after_of_label_rule import AfterOfLabelRule
 from .much_rule import MuchRule
+from .enough_after_adj_rule import EnoughAfterAdjRule
 from .law_sh import LawShRule
 from .law_z import LawZRule
 from .the_ordinal import TheOrdinalRule
@@ -15,6 +16,7 @@ __all__ = [
     'M1OfToNRule',
     'AfterOfLabelRule',
     'MuchRule',
+    'EnoughAfterAdjRule',
     'LawShRule',
     'LawZRule',
     'TheOrdinalRule',

@@ -39,12 +39,12 @@ _NP_SPECIAL_RULES = [
     ('src.rules.np.special.m1_of_to_n_rule', 'M1OfToNRule'),
     ('src.rules.np.special.after_of_label_rule', 'AfterOfLabelRule'),
     ('src.rules.np.special.much_rule', 'MuchRule'),
+    ('src.rules.np.special.enough_after_adj_rule', 'EnoughAfterAdjRule'),
     ('src.rules.np.special.law_sh', 'LawShRule'),
     ('src.rules.np.special.law_z', 'LawZRule'),
     ('src.rules.np.special.the_ordinal', 'TheOrdinalRule'),
     ('src.rules.np.special.final_fix', 'FinalFixAfterNounRule'),
     ('src.rules.np.special.wordnet_finalize', 'WordNetFinalizeRule'),
-    # آخرین اصلاح: بعد از WordNet
     ('src.rules.np.special.more_after_m1_final_rule', 'MoreAfterM1FinalRule'),
 ]
 
@@ -81,7 +81,6 @@ def import_np_special_rules(registry: RuleRegistry) -> RuleRegistry:
 
 
 def import_np_rules(registry: RuleRegistry) -> RuleRegistry:
-    """ثبت همه قوانین NP (m1..m5 + special)."""
     import_m1_rules(registry)
     import_m2_to_m5(registry)
     import_np_special_rules(registry)
