@@ -13,7 +13,7 @@ from src.utils import (
     preprocess_text, tokenize_english, number_type,
     is_possessive_or_s,
 )
-from src.token import Token
+from src.ht_token import Token
 
 
 class Pipeline:

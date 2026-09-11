@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .token import Token
+    from src.ht_token import Token
     from .context import Context
 
 
