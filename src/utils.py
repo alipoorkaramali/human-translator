@@ -119,8 +119,10 @@ def is_np_boundary(token):
     if t in {")", "]", "}", '"', "'"}:
         return True
     try:
+        # اگر هر حس فعلی (verb) داشته باشد، مرز NP است
+        # (فقط syns[0] کافی نیست؛ مثلاً 'run' اول اسم است)
         syns = wn.synsets(t)
-        if syns and syns[0].pos() == 'v':
+        if any(s.pos() == 'v' for s in syns):
             return True
     except LookupError:
         # wordnet هنوز دانلود نشده — بدون crash فقط False
