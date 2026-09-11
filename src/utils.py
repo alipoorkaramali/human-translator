@@ -85,6 +85,9 @@ def setup_logging(level=logging.INFO, log_file=None):
 PUNCTUATION = {".", ",", "!", "?", ";", ":", "…", "—", "–",
                ")", "(", "[", "]", "{", "}", "«", "»"}
 
+# علائم قوی که زنجیرهٔ lookback ملکی را قطع می‌کنند
+_STRONG_STOP = {".", "!", "?", ";", ":", "—"}
+
 def is_punctuation(token):
     return token in PUNCTUATION
 
@@ -101,10 +104,60 @@ def is_possessive_or_s(word):
             'mine', 'yours', 'hers', 'ours', 'theirs'}
     return w in poss
 
+
+def _token_text(item) -> str:
+    """استخراج متن از str یا Token."""
+    if item is None:
+        return ""
+    if hasattr(item, "word"):
+        return str(item.word)
+    return str(item)
+
+
+def possessive_before_index(sequence, idx, max_lookback=15) -> bool:
+    """
+    آیا قبل از idx یک ضمیر/نشانهٔ ملکی هست و بین آن‌ها
+    هیچ علامت نگارشی قوی نیست؟
+
+    sequence: لیست str یا لیست Token
+    کاربرد: جلوگیری از اعمال بعضی قوانین (مثلاً جمع) وقتی دامنهٔ ملکی فعال است.
+
+    نسبت به نسخهٔ نوت‌بوک:
+      - پشتیبانی از Token علاوه بر str
+      - dash بلند (—) هم توقف‌کننده است
+      - idx نامعتبر → False امن
+    """
+    if not sequence or idx is None or idx <= 0:
+        return False
+
+    j = idx - 1
+    limit = max(0, idx - max_lookback)
+
+    while j >= limit:
+        text = _token_text(sequence[j]).strip()
+        if not text:
+            j -= 1
+            continue
+
+        # توقف کامل: ضمیرهای قبل از این علامت بی‌اثرند
+        if text in _STRONG_STOP or text[-1:] in _STRONG_STOP:
+            return False
+
+        if is_possessive_or_s(text):
+            return True
+
+        j -= 1
+
+    return False
+
+
 def is_np_boundary(token):
     if not token:
         return False
     t = str(token).lower()
+    if hasattr(token, "word"):
+        t = str(token.word).lower()
+
     if t in {".", "!", "?", ";", ":", "—", ","}:
         return True
     if re.search(r'[.!?;:—]$', t):
