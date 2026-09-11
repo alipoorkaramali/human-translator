@@ -3,7 +3,7 @@
 #
 # این ماژول:
 #   - لیست توکن‌ها را نگه می‌دارد
-#   - قوانین را به ترتیب فاز (m1..m5 + special) اجرا می‌کند
+#   - قوانین را به ترتیب فازهای NP و VP اجرا می‌کند
 #   - هر فاز را تا ثبات (یا max_iter) تکرار می‌کند
 #   - در انتها DataFrame می‌سازد
 # =============================================================================
@@ -11,9 +11,9 @@ from typing import List, Optional
 
 import pandas as pd
 
-from ..ht_token import Token                    # ← اصلاح شد (دو نقطه)
-from .context import Context                 # ← همان core/
-from .rule_base import RuleRegistry          # ← همان core/
+from ..ht_token import Token
+from .context import Context
+from .rule_base import RuleRegistry
 
 
 class Processor:
@@ -22,17 +22,21 @@ class Processor:
 
     استفاده:
         proc = Processor(ctx, registry)
-        proc.load(words, labels, numtypes)   # یا مستقیم tokens را ست کنید
+        proc.load(words, labels, numtypes)
         proc.run_all()
         df = proc.to_dataframe()
     """
+
+    PHASES = [
+        'm1', 'm2', 'm3', 'm4', 'm5', 'special',
+        'vp1', 'vp2', 'vp3', 'vp_special',
+    ]
 
     def __init__(self, context: Context, registry: RuleRegistry):
         self.ctx = context
         self.registry = registry
         self.tokens: List[Token] = []
 
-    # ------------------------------------------------------------------
     def load(self,
              words: List[str],
              labels: Optional[List[str]] = None,
@@ -45,7 +49,6 @@ class Processor:
             self.tokens.append(Token(word=w, label=lbl,
                                      numtype=nt, index=i))
 
-    # ------------------------------------------------------------------
     def run_phase(self, phase: str, max_iter: int = 8) -> bool:
         """
         اجرای همه قوانین یک فاز تا ثبات یا max_iter.
@@ -67,13 +70,11 @@ class Processor:
 
         return any_change
 
-    # ------------------------------------------------------------------
     def run_all(self, max_iter_per_phase: int = 8) -> None:
-        """اجرای همه فازها به ترتیب m1 → m5 → special."""
-        for phase in ['m1', 'm2', 'm3', 'm4', 'm5', 'special']:
+        """اجرای همه فازها: NP (m1..m5 + special) سپس VP (vp1..vp3 + special)."""
+        for phase in self.PHASES:
             self.run_phase(phase, max_iter=max_iter_per_phase)
 
-    # ------------------------------------------------------------------
     def run_rule(self, name: str, max_iter: int = 8) -> bool:
         """اجرای یک قانون خاص با نام."""
         rule = self.registry.by_name(name)
@@ -84,7 +85,6 @@ class Processor:
             any_change = True
         return any_change
 
-    # ------------------------------------------------------------------
     def to_dataframe(self) -> pd.DataFrame:
         """تبدیل به DataFrame با ستون‌های استاندارد."""
         return pd.DataFrame([t.to_dict() for t in self.tokens])
@@ -93,9 +93,6 @@ class Processor:
         """ذخیره مستقیم در اکسل."""
         self.to_dataframe().to_excel(path, index=False, engine='openpyxl')
 
-    # ------------------------------------------------------------------
-    # دسترسی سریع
-    # ------------------------------------------------------------------
     def words(self) -> List[str]:
         return [t.word for t in self.tokens]
 
