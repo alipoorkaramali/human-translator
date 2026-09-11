@@ -1,7 +1,7 @@
-from .token import Token
-from .context import Context
-from .rule_base import Rule, RuleRegistry
-from .processor import Processor
-from .pipeline import Pipeline
+# =============================================================================
+# src/__init__.py
+# این فایل فقط برای تبدیل src به پکیج Python است.
+# هیچ import یا کدی اینجا نگذارید — اگر لازم شد، در زیرپکیجها export کنید.
+# =============================================================================
 
-__all__ = ['Token', 'Context', 'Rule', 'RuleRegistry', 'Processor', 'Pipeline']
+__version__ = "2.0.0"
