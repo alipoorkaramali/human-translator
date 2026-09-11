@@ -8,6 +8,8 @@ WordNet برچسب more را N یا adv کرده باشد، اصلاح شود.
   2 more books        → more = m2
   many more students  → more = m2
   some more time      → more = m2
+
+هم‌زمان role = 'adjective (comparative)' ست می‌شود (مثل dict_roles نوت‌بوک).
 """
 from typing import List, TYPE_CHECKING
 
@@ -17,6 +19,8 @@ from src.utils import is_np_boundary
 if TYPE_CHECKING:
     from src.ht_token import Token
     from src.core.context import Context
+
+_ROLE = "adjective (comparative)"
 
 
 class MoreAfterM1FinalRule(Rule):
@@ -50,8 +54,10 @@ class MoreAfterM1FinalRule(Rule):
 
                 j -= 1
 
-            if has_m1_before and tok.label != "m2":
-                tok.label = "m2"
-                changed = True
+            if has_m1_before:
+                if tok.label != "m2" or tok.role != _ROLE:
+                    tok.label = "m2"
+                    tok.role = _ROLE
+                    changed = True
 
         return changed
