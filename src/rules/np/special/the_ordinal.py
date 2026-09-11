@@ -1,22 +1,17 @@
 """
-قانون the + ordinal:
+قانون نهایی ordinal (هم‌تراز نوت‌بوک):
 
-  • فقط "the" + ordinal (بدون مداخله بینشان) → ordinal = m1
-  • ordinal تنها یا بعد از اسم / بدون the بلافاصله قبل → m4
-  • بقیهٔ حالت‌ها دست‌نخورده
-
-مثال:
-  the first book   → first = m1
-  first book       → first = m4
-  chapter first    → first = m4
+  • فقط وقتی دقیقاً قبلش "the" باشد → ترکیب "the ORDINAL" و برچسب m1
+  • در همهٔ حالت‌های دیگر → ordinal = adv
+  • اگر از قبل m4 یا adv باشد → دست نزن
 """
 from typing import List, TYPE_CHECKING
 
 from src.core.rule_base import Rule
+from src.ht_token import Token
 from src.utils import number_type
 
 if TYPE_CHECKING:
-    from src.ht_token import Token
     from src.core.context import Context
 
 
@@ -30,40 +25,44 @@ class TheOrdinalRule(Rule):
         cardinals = getattr(ctx, "cardinal_numbers", set()) or set()
         ordinals = getattr(ctx, "ordinal_numbers", set()) or set()
 
-        for i, tok in enumerate(tokens):
-            if tok.locked:
-                continue
+        i = 0
+        while i < len(tokens):
+            if i >= len(tokens) - 1:
+                break
 
-            is_ord = tok.numtype == "ordinal" or (
-                number_type(tok.word, cardinals, ordinals) == "ordinal"
+            nxt = tokens[i + 1]
+            is_ord = nxt.numtype == "ordinal" or (
+                number_type(nxt.word, cardinals, ordinals) == "ordinal"
             )
             if not is_ord:
+                i += 1
                 continue
 
-            # فقط the بلافاصله قبل (بدون فاصله/مداخله — توکن قبلی)
-            the_immediately_before = (
-                i > 0 and tokens[i - 1].word.lower() == "the"
-            )
+            # اگر قبلاً m4 یا adv شده → دست نزن
+            if nxt.label in ("m4", "adv"):
+                i += 1
+                continue
 
-            if the_immediately_before:
-                # the + ordinal → m1
-                if tok.label != "m1":
-                    tok.label = "m1"
-                    tok.role = "determiner/quantifier"
-                    changed = True
-                # the را هم m1 نگه دار
-                prev = tokens[i - 1]
-                if not prev.locked and prev.label != "m1":
-                    prev.label = "m1"
-                    prev.role = "determiner/article"
-                    changed = True
+            cur = tokens[i]
+            if cur.word.lower() == "the" and cur.label in ("", "m1") and not cur.locked:
+                # ترکیب the + ordinal → یک توکن m1
+                combined = Token(
+                    word=f"the {nxt.word}",
+                    label="m1",
+                    numtype="ordinal",
+                    role="determiner/quantifier",
+                    index=cur.index,
+                    original=f"{cur.original} {nxt.original}".strip(),
+                )
+                tokens[i:i + 2] = [combined]
+                changed = True
+                # i ثابت می‌ماند تا توکن بعدی بعد از ترکیب بررسی شود
             else:
-                # ordinal بدون the چسبیده → m4 (مگر از قبل برچسب قفل‌شده)
-                if tok.label not in ("m4", "adv"):
-                    # adv ممکن است از WordNet ordinal آمده باشد؛ دست نزن اگر adv است
-                    if tok.label != "m4":
-                        tok.label = "m4"
-                        tok.role = "ordinal number"
-                        changed = True
+                # همهٔ حالت‌های دیگر → ordinal = adv
+                if not nxt.locked and nxt.label != "adv":
+                    nxt.label = "adv"
+                    nxt.role = "adverb"
+                    changed = True
+                i += 1
 
         return changed
