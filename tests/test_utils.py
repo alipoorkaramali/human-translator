@@ -6,7 +6,9 @@ from src.utils import (
     is_punctuation, is_and_word, syllable_count,
     is_cardinal_word, is_ordinal_word,
     preprocess_text, tokenize_english,
+    possessive_before_index,
 )
+from src.ht_token import Token
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +71,43 @@ class TestPossessive:
     def test_empty(self):
         assert is_possessive_or_s("") is False
         assert is_possessive_or_s(None) is False
+
+
+# ---------------------------------------------------------------------------
+# possessive_before_index
+# ---------------------------------------------------------------------------
+class TestPossessiveBeforeIndex:
+    def test_finds_pronoun(self):
+        words = ["my", "red", "book"]
+        assert possessive_before_index(words, 2) is True
+
+    def test_finds_apostrophe_s(self):
+        words = ["Ali", "'s", "book"]
+        assert possessive_before_index(words, 2) is True
+
+    def test_blocked_by_strong_punct(self):
+        # ضمیر قبل از نقطه → بعد از نقطه بی‌اثر
+        words = ["his", ".", "books"]
+        assert possessive_before_index(words, 2) is False
+
+    def test_no_possessive(self):
+        words = ["the", "red", "book"]
+        assert possessive_before_index(words, 2) is False
+
+    def test_idx_zero(self):
+        assert possessive_before_index(["my", "book"], 0) is False
+
+    def test_with_tokens(self):
+        tokens = [
+            Token("her", "", "", index=0),
+            Token("books", "", "", index=1),
+        ]
+        assert possessive_before_index(tokens, 1) is True
+
+    def test_comma_does_not_block(self):
+        # ویرگول در نسخهٔ نوت‌بوک توقف‌کننده نبود
+        words = ["his", ",", "books"]
+        assert possessive_before_index(words, 2) is True
 
 
 # ---------------------------------------------------------------------------
