@@ -120,20 +120,26 @@ jobs:
           check_dir  "src/core/importers"
           check_file "src/core/importers/__init__.py"
           check_optional "src/core/importers/data_importer.py"
+          check_optional "src/core/importers/np_importer.py"
+          check_optional "src/core/importers/vp_importer.py"
           check_optional "src/core/importers/m1_importer.py"
-          check_optional "src/core/importers/m2_m5_importer.py"
-          check_optional "src/core/importers/special_checker.py"
 
-          echo "──── rules ────"
+          echo "──── rules/np (Nominal Phrase) ────"
           check_dir  "src/rules"
           check_file "src/rules/__init__.py"
+          check_dir  "src/rules/np"
+          check_file "src/rules/np/__init__.py"
           for sub in m1 m2 m3 m4 m5 special; do
-            if [ -d "src/rules/$sub" ]; then
-              echo "✅ src/rules/$sub/"
-              check_file "src/rules/$sub/__init__.py"
-            else
-              echo "⚠️  (اختیاری) src/rules/$sub/ هنوز ساخته نشده"
-            fi
+            check_dir  "src/rules/np/$sub"
+            check_file "src/rules/np/$sub/__init__.py"
+          done
+
+          echo "──── rules/vp (Verbal Phrase) ────"
+          check_dir  "src/rules/vp"
+          check_file "src/rules/vp/__init__.py"
+          for sub in vp1 vp2 vp3 special; do
+            check_dir  "src/rules/vp/$sub"
+            check_file "src/rules/vp/$sub/__init__.py"
           done
 
           echo "──── scripts ────"
@@ -168,22 +174,22 @@ jobs:
           python -c "from src.core.rule_base import Rule, RuleRegistry; print('✅ rule_base OK')"
           python -c "from src.core.processor import Processor; print('✅ processor OK')"
 
-          echo "──── importers (اختیاری در فاز اسکلت) ────"
+          echo "──── importers ────"
           python -c "
           try:
-              from src.core.importers import build_context, import_m1_rules, import_m2_to_m5, import_special_rules
+              from src.core.importers import build_context, import_np_rules, import_vp_rules
               print('✅ importers OK')
           except (ImportError, AttributeError) as e:
-              print(f'⚠️  importers هنوز کامل نیست: {e}')
+              print(f'⚠️  importers: {e}')
           "
 
-          echo "──── pipeline (اختیاری در فاز اسکلت) ────"
+          echo "──── pipeline ────"
           python -c "
           try:
               from src.core.pipeline import Pipeline
               print('✅ pipeline OK')
           except (ImportError, AttributeError) as e:
-              print(f'⚠️  pipeline هنوز کامل نیست: {e}')
+              print(f'⚠️  pipeline: {e}')
           "
 
       - name: 🔍 بررسی استایل با flake8
