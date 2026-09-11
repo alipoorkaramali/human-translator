@@ -118,9 +118,13 @@ def is_np_boundary(token):
         return True
     if t in {")", "]", "}", '"', "'"}:
         return True
-    syns = wn.synsets(t)
-    if syns and syns[0].pos() == 'v':
-        return True
+    try:
+        syns = wn.synsets(t)
+        if syns and syns[0].pos() == 'v':
+            return True
+    except LookupError:
+        # wordnet هنوز دانلود نشده — بدون crash فقط False
+        pass
     return False
 
 def is_cardinal_word(word, cardinal_numbers):
@@ -161,19 +165,27 @@ def number_type(word, cardinal_numbers, ordinal_numbers):
 _CMU_CACHE = None
 
 def _get_cmu():
+    """برگرداندن dict سی‌ام‌یو؛ اگر دیتا نباشد dict خالی."""
     global _CMU_CACHE
     if _CMU_CACHE is None:
-        _CMU_CACHE = cmudict.dict()
+        try:
+            _CMU_CACHE = cmudict.dict()
+        except LookupError:
+            _CMU_CACHE = {}
     return _CMU_CACHE
 
 def syllable_count(word):
     w = word.lower()
     w_clean = re.sub(r"[^\w'-]", '', w)
     try:
-        pron = _get_cmu()[w_clean][0]
-        return sum(1 for p in pron if re.search(r'\d', p))
-    except (KeyError, IndexError):
-        return max(1, len(re.findall(r'[aeiouy]+', w_clean, re.I)))
+        cmu = _get_cmu()
+        if w_clean in cmu:
+            pron = cmu[w_clean][0]
+            return sum(1 for p in pron if re.search(r'\d', p))
+    except (KeyError, IndexError, TypeError):
+        pass
+    # fallback: شمارش خوشه‌های واکه
+    return max(1, len(re.findall(r'[aeiouy]+', w_clean, re.I)))
 
 
 def is_uncountable_noun(word, ctx=None):
@@ -195,7 +207,10 @@ def is_uncountable_noun(word, ctx=None):
         if vq and w in vq:
             return True
 
-    syns = wn.synsets(w, pos='n')
+    try:
+        syns = wn.synsets(w, pos='n')
+    except LookupError:
+        return False
     if not syns:
         return False
     for syn in syns:
@@ -209,8 +224,11 @@ def is_uncountable_noun(word, ctx=None):
                 name = hyper.name()
                 if 'substance.n.01' in name or 'abstraction.n.06' in name:
                     return True
-    if wn.synsets(w + 's', pos='n') == [] and syns:
-        return True
+    try:
+        if wn.synsets(w + 's', pos='n') == [] and syns:
+            return True
+    except LookupError:
+        pass
     return False
 
 
