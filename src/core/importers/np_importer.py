@@ -11,6 +11,7 @@ _M1_RULES = [
     ('src.rules.np.m1.unit_of_rule', 'UnitOfRule'),
     ('src.rules.np.m1.some_number_rule', 'SomeNumberRule'),
     ('src.rules.np.m1.double_m1_rule', 'DoubleM1Rule'),
+    ('src.rules.np.m1.double_quantifier_rule', 'DoubleQuantifierRule'),
     ('src.rules.np.m1.m1_after_noun_rule', 'M1AfterNounRule'),
 ]
 
@@ -34,12 +35,15 @@ _M5_RULES = [
 ]
 
 _NP_SPECIAL_RULES = [
+    ('src.rules.np.special.compound_resplit_rule', 'CompoundResplitRule'),
+    ('src.rules.np.special.m1_of_to_n_rule', 'M1OfToNRule'),
+    ('src.rules.np.special.after_of_label_rule', 'AfterOfLabelRule'),
+    ('src.rules.np.special.much_rule', 'MuchRule'),
     ('src.rules.np.special.law_sh', 'LawShRule'),
     ('src.rules.np.special.law_z', 'LawZRule'),
     ('src.rules.np.special.the_ordinal', 'TheOrdinalRule'),
     ('src.rules.np.special.final_fix', 'FinalFixAfterNounRule'),
     ('src.rules.np.special.wordnet_finalize', 'WordNetFinalizeRule'),
-    ('src.rules.np.special.much_rule', 'MuchRule'),
 ]
 
 
