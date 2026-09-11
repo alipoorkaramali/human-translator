@@ -1,10 +1,9 @@
 # ============================================================
-# Makefile برای پروژه‌ی human-translator
-# شامل دستورات کوتاه برای ساخت و اجرا با داکر
+# Makefile برای پروژهی human-translator
 # ============================================================
 
 # ----------------------------------------
-# متغیرهای اصلی (برای جلوگیری از تکرار)
+# متغیرها
 # ----------------------------------------
 IMAGE_NAME   = text-processor
 CONTAINER    = text-processor-run
@@ -12,103 +11,131 @@ DOCKERFILE   = docker/Dockerfile
 INPUT_FILE   = data/input/sample.txt
 
 # ----------------------------------------
-# دستورات پیش‌فرض (وقتی فقط 'make' می‌زنید)
+# پیشفرض: help
 # ----------------------------------------
 .PHONY: help
 help:
 	@echo "------------------------------------------------------------------"
-	@echo "  📦 پروژه‌ی human-translator - دستورات موجود:"
+	@echo "  📦 پروژهی human-translator - دستورات موجود:"
 	@echo "------------------------------------------------------------------"
-	@echo "  make build         :  ساخت ایمیج داکر"
-	@echo "  make run           :  اجرای برنامه با فایل sample.txt"
-	@echo "  make run-file FILE=... : اجرا با فایل ورودی دلخواه (مثال: make run-file FILE=data/input/mytext.txt)"
-	@echo "  make clean         :  حذف ایمیج ساخته‌شده"
-	@echo "  make shell         :  ورود به شل کانتینر برای دیباگ"
-	@echo "  make install-dev   :  نصب وابستگی‌های توسعه روی سیستم میزبان"
-	@echo "  make format        :  فرمت کردن خودکار کدهای پایتون (نیاز به black)"
-	@echo "  make lint          :  بررسی خطاهای استایل کد (نیاز به flake8)"
+	@echo "  --- داکر ---"
+	@echo "  make build              :  ساخت ایمیج داکر"
+	@echo "  make run                :  اجرای برنامه با sample.txt"
+	@echo "  make run-file FILE=...  :  اجرا با فایل دلخواه"
+	@echo "  make shell              :  ورود به شل کانتینر"
+	@echo "  make clean              :  حذف ایمیج"
+	@echo "  --- توسعه ---"
+	@echo "  make install-dev        :  نصب وابستگیهای توسعه"
+	@echo "  make format             :  فرمت با black + isort"
+	@echo "  make lint               :  بررسی با flake8"
+	@echo "  --- تست ---"
+	@echo "  make test               :  اجرای همه تستها"
+	@echo "  make test-core          :  تستهای Core"
+	@echo "  make test-importers     :  تستهای Importers"
+	@echo "  make test-rules         :  تستهای Rules"
+	@echo "  make coverage           :  گزارش پوشش تست (HTML)"
+	@echo "  make check              :  lint + test (قبل از push)"
 	@echo "------------------------------------------------------------------"
 
-# ----------------------------------------
-# ساخت ایمیج داکر (با استفاده از Dockerfile)
-# ----------------------------------------
+# ============================================================
+# داکر
+# ============================================================
 .PHONY: build
 build:
 	@echo "🚀 در حال ساخت ایمیج $(IMAGE_NAME) ..."
 	docker build -f $(DOCKERFILE) -t $(IMAGE_NAME) .
-	@echo "✅ ایمیج با موفقیت ساخته شد!"
+	@echo "✅ ایمیج ساخته شد!"
 
-# ----------------------------------------
-# اجرای برنامه با فایل نمونه (sample.txt)
-# ----------------------------------------
 .PHONY: run
 run:
-	@echo "🚀 در حال اجرا با فایل $(INPUT_FILE) ..."
+	@echo "🚀 اجرا با $(INPUT_FILE) ..."
 	docker run --rm \
 		-v "$(CURDIR)/data:/app/data" \
 		-v "$(CURDIR)/Book1.xlsx:/app/Book1.xlsx" \
 		$(IMAGE_NAME) $(INPUT_FILE)
-	@echo "✅ اجرا کامل شد! خروجی را در data/output/ ببینید."
+	@echo "✅ خروجی در data/output/."
 
-# ----------------------------------------
-# اجرا با فایل ورودی دلخواه (مثال: make run-file FILE=data/input/other.txt)
-# ----------------------------------------
 .PHONY: run-file
 run-file:
 ifndef FILE
 	$(error "FILE را مشخص کنید! مثال: make run-file FILE=data/input/mytext.txt")
 endif
-	@echo "🚀 در حال اجرا با فایل $(FILE) ..."
+	@echo "🚀 اجرا با $(FILE) ..."
 	docker run --rm \
 		-v "$(CURDIR)/data:/app/data" \
 		-v "$(CURDIR)/Book1.xlsx:/app/Book1.xlsx" \
 		$(IMAGE_NAME) $(FILE)
-	@echo "✅ اجرا کامل شد! خروجی را در data/output/ ببینید."
+	@echo "✅ خروجی در data/output/."
 
-# ----------------------------------------
-# ورود به شل (bash) داخل کانتینر (برای دیباگ)
-# ----------------------------------------
 .PHONY: shell
 shell:
-	@echo "🐚 در حال ورود به شل کانتینر ..."
+	@echo "🐚 ورود به شل کانتینر ..."
 	docker run --rm -it \
 		-v "$(CURDIR)/data:/app/data" \
 		-v "$(CURDIR)/Book1.xlsx:/app/Book1.xlsx" \
 		--entrypoint /bin/bash \
 		$(IMAGE_NAME)
 
-# ----------------------------------------
-# حذف ایمیج ساخته‌شده
-# ----------------------------------------
 .PHONY: clean
 clean:
-	@echo "🧹 در حال حذف ایمیج $(IMAGE_NAME) ..."
-	docker rmi $(IMAGE_NAME) || echo "✅ ایمیج وجود نداشت یا حذف شد."
+	@echo "🧹 حذف ایمیج $(IMAGE_NAME) ..."
+	docker rmi $(IMAGE_NAME) || echo "✅ ایمیج وجود نداشت."
 
-# ----------------------------------------
-# نصب وابستگی‌های توسعه روی سیستم میزبان (اختیاری)
-# ----------------------------------------
+# ============================================================
+# توسعه
+# ============================================================
 .PHONY: install-dev
 install-dev:
-	@echo "📦 در حال نصب وابستگی‌های توسعه ..."
+	@echo "📦 نصب وابستگیهای توسعه ..."
+	pip install -r requirements.txt
 	pip install -r requirements-dev.txt
 	@echo "✅ نصب کامل شد."
 
-# ----------------------------------------
-# فرمت کردن خودکار کدها با black
-# ----------------------------------------
 .PHONY: format
 format:
-	@echo "🎨 در حال فرمت کردن کدها با black ..."
-	black src/
-	isort src/
+	@echo "🎨 فرمت کردن کدها ..."
+	black src/ tests/ scripts/
+	isort src/ tests/ scripts/
 	@echo "✅ فرمت کامل شد."
 
-# ----------------------------------------
-# بررسی خطاهای استایل با flake8
-# ----------------------------------------
 .PHONY: lint
 lint:
-	@echo "🔍 در حال بررسی کد با flake8 ..."
-	flake8 src/
-	@echo "✅ بررسی کامل شد (اگر خطایی بالا دیدید، باید رفع کنید)."
+	@echo "🔍 بررسی با flake8 ..."
+	flake8 src/ tests/ scripts/ --max-line-length=127 --statistics
+	@echo "✅ بررسی کامل شد."
+
+# ============================================================
+# تست
+# ============================================================
+.PHONY: test
+test:
+	@echo "🧪 اجرای همه تستها ..."
+	PYTHONPATH=. pytest tests/ -v
+
+.PHONY: test-core
+test-core:
+	@echo "🧪 تستهای Core ..."
+	PYTHONPATH=. pytest tests/test_core/ -v
+
+.PHONY: test-importers
+test-importers:
+	@echo "🧪 تستهای Importers ..."
+	PYTHONPATH=. pytest tests/test_importers/ -v
+
+.PHONY: test-rules
+test-rules:
+	@echo "🧪 تستهای Rules ..."
+	PYTHONPATH=. pytest tests/test_rules/ -v
+
+.PHONY: coverage
+coverage:
+	@echo "📊 محاسبه پوشش تست ..."
+	PYTHONPATH=. pytest tests/ \
+		--cov=src \
+		--cov-report=term-missing \
+		--cov-report=html
+	@echo "✅ گزارش HTML در htmlcov/."
+
+.PHONY: check
+check: lint test
+	@echo "✅ همه بررسیها موفق."
