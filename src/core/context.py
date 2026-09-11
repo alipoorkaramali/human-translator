@@ -1,5 +1,9 @@
+# =============================================================================
+# src/core/context.py - نگه‌دارندهٔ مجموعه‌ها و دیکشنری‌ها
+# =============================================================================
 from dataclasses import dataclass, field
 from typing import Set, Dict, Any
+
 
 @dataclass
 class Context:
@@ -21,7 +25,9 @@ class Context:
     # محل ذخیرهٔ داده‌های جانبی
     extra: Dict[str, Any] = field(default_factory=dict)
 
-    # ----- سازگاری کامل با کد قدیمی که ctx را dict می‌بیند -----
+    # ------------------------------------------------------------------
+    # سازگاری کامل با dict قدیمی
+    # ------------------------------------------------------------------
     def __getitem__(self, key: str):
         return getattr(self, key)
 
@@ -37,3 +43,18 @@ class Context:
             'article_set', 'demotrative_set', 'simple_set',
             'compound_set', 'intensifier_set', 'vague_quant_set',
         ]
+
+    # ------------------------------------------------------------------
+    # پر کردن از tuple (خروجی load_phrases_from_excel)
+    # ------------------------------------------------------------------
+    def update_from_tuple(self, tup: tuple):
+        """
+        ترتیب tuple:
+            (phrases_set, cardinal_numbers, ordinal_numbers, article_set,
+             demotrative_set, simple_set, compound_set, intensifier_set,
+             vague_quant_set)
+        """
+        (self.phrases_set, self.cardinal_numbers, self.ordinal_numbers,
+         self.article_set, self.demotrative_set, self.simple_set,
+         self.compound_set, self.intensifier_set, self.vague_quant_set) = tup
+        return self
