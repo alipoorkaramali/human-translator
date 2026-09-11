@@ -34,6 +34,13 @@ dist/
 .coverage.*
 htmlcov/
 
+# ---------- Jupyter ----------
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+
+# ---------- pip ----------
+pip-wheel-metadata/
+
 # ---------- NLTK data ----------
 nltk_data/
 
@@ -46,6 +53,7 @@ data/input/
 # ---------- IDE / Editor ----------
 .vscode/
 .idea/
+.editorconfig
 *.swp
 *.swo
 *~
@@ -59,6 +67,10 @@ Thumbs.db
 logs/
 tmp/
 temp/
+*.bak
+*.tmp
+*.orig
+*.rej
 
 # ---------- Env / secrets ----------
 .env
@@ -66,8 +78,22 @@ temp/
 *.pem
 *.key
 
-# ---------- Tests (لازم نیست در ایمیج runtime باشند) ----------
+# ---------- Tests (در runtime لازم نیست) ----------
 tests/
 
-# ---------- Scripts (اختیاری — چون در Dockerfile کپی میشوند، اینجا فقط برای کاهش context) ----------
-# scripts/ را ignore نکن چون Dockerfile از آن استفاده میکند
+# ---------- مستندات و تنظیمات پروژه ----------
+README.md
+LICENSE
+CHANGELOG.md
+docs/
+setup.py
+setup.cfg
+pyproject.toml
+Makefile
+
+# ⚠️ توجه: اینها را ignore نکن:
+#   - scripts/         (Dockerfile از آن استفاده میکند)
+#   - docker/          (خود Dockerfile اینجاست)
+#   - requirements.txt (Dockerfile COPY میکند)
+#   - Book1.xlsx       (Dockerfile COPY میکند، با !Book1.xlsx استثنا شده)
+#   - src/             (کد اصلی)
