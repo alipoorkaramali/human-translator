@@ -18,48 +18,89 @@ from .rule_base import RuleRegistry          # ← همان core/
 
 class Processor:
     """
-    موتور اصلی: توکن‌ها را می‌گیرد و قوانین را روی آن‌ها اجرا می‌کند.
+    موتور اصلی پردازش توکن‌ها.
+
+    استفاده:
+        proc = Processor(ctx, registry)
+        proc.load(words, labels, numtypes)   # یا مستقیم tokens را ست کنید
+        proc.run_all()
+        df = proc.to_dataframe()
     """
 
-    MAX_ITER_PER_PHASE = 5
-
-    def __init__(self, ctx: Context, registry: RuleRegistry):
-        self.ctx = ctx
+    def __init__(self, context: Context, registry: RuleRegistry):
+        self.ctx = context
         self.registry = registry
         self.tokens: List[Token] = []
 
     # ------------------------------------------------------------------
-    def run_phase(self, phase: str) -> int:
+    def load(self,
+             words: List[str],
+             labels: Optional[List[str]] = None,
+             numtypes: Optional[List[str]] = None) -> None:
+        """ساخت لیست Token از سه لیست موازی (سازگار با کد قدیمی)."""
+        labels = labels or [''] * len(words)
+        numtypes = numtypes or [''] * len(words)
+        self.tokens = []
+        for i, (w, lbl, nt) in enumerate(zip(words, labels, numtypes)):
+            self.tokens.append(Token(word=w, label=lbl,
+                                     numtype=nt, index=i))
+
+    # ------------------------------------------------------------------
+    def run_phase(self, phase: str, max_iter: int = 8) -> bool:
         """
-        اجرای همه قوانین یک فاز تا وقتی تغییری رخ ندهد
-        یا به MAX_ITER برسد.
-        برمی‌گرداند تعداد کل تغییرها.
+        اجرای همه قوانین یک فاز تا ثبات یا max_iter.
+        برمی‌گرداند True اگر حداقل یک تغییر رخ داده باشد.
         """
         rules = self.registry.by_label(phase)
-        total_changes = 0
+        any_change = False
 
-        for _ in range(self.MAX_ITER_PER_PHASE):
-            phase_changed = False
+        for _ in range(max_iter):
+            changed_this_round = False
             for rule in rules:
                 if not rule.enabled:
                     continue
-                changed = rule.apply(self.tokens, self.ctx)
-                if changed:
-                    phase_changed = True
-                    total_changes += 1
-            if not phase_changed:
+                if rule.apply(self.tokens, self.ctx):
+                    changed_this_round = True
+                    any_change = True
+            if not changed_this_round:
                 break
 
-        return total_changes
+        return any_change
 
     # ------------------------------------------------------------------
-    def run_all(self) -> None:
-        """اجرای همه فازها به ترتیب."""
+    def run_all(self, max_iter_per_phase: int = 8) -> None:
+        """اجرای همه فازها به ترتیب m1 → m5 → special."""
         for phase in ['m1', 'm2', 'm3', 'm4', 'm5', 'special']:
-            self.run_phase(phase)
+            self.run_phase(phase, max_iter=max_iter_per_phase)
+
+    # ------------------------------------------------------------------
+    def run_rule(self, name: str, max_iter: int = 8) -> bool:
+        """اجرای یک قانون خاص با نام."""
+        rule = self.registry.by_name(name)
+        any_change = False
+        for _ in range(max_iter):
+            if not rule.apply(self.tokens, self.ctx):
+                break
+            any_change = True
+        return any_change
 
     # ------------------------------------------------------------------
     def to_dataframe(self) -> pd.DataFrame:
-        """تبدیل لیست توکن‌ها به DataFrame سازگار با خروجی قبلی."""
-        rows = [t.to_dict() for t in self.tokens]
-        return pd.DataFrame(rows)
+        """تبدیل به DataFrame با ستون‌های استاندارد."""
+        return pd.DataFrame([t.to_dict() for t in self.tokens])
+
+    def save(self, path: str = 'data/output/output.xlsx') -> None:
+        """ذخیره مستقیم در اکسل."""
+        self.to_dataframe().to_excel(path, index=False, engine='openpyxl')
+
+    # ------------------------------------------------------------------
+    # دسترسی سریع
+    # ------------------------------------------------------------------
+    def words(self) -> List[str]:
+        return [t.word for t in self.tokens]
+
+    def labels(self) -> List[str]:
+        return [t.label for t in self.tokens]
+
+    def numtypes(self) -> List[str]:
+        return [t.numtype for t in self.tokens]
