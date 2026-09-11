@@ -36,6 +36,8 @@ jobs:
   test:
     name: تست روی Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    env:
+      NLTK_DATA: ${{ github.workspace }}/nltk_data
     strategy:
       matrix:
         python-version: [ '3.9', '3.10', '3.11' ]
@@ -64,7 +66,7 @@ jobs:
           if [ -f scripts/download_nltk.py ]; then
             python scripts/download_nltk.py
           else
-            python -m nltk.downloader punkt wordnet cmudict omw-1.4
+            python -m nltk.downloader -d "$NLTK_DATA" punkt wordnet cmudict omw-1.4
           fi
 
       - name: 🔍 بررسی فایل‌های ضروری
@@ -198,7 +200,6 @@ jobs:
           else
             echo "⚠️ تست‌های test_core یافت نشد، رد می‌شود."
           fi
-        continue-on-error: true
 
       - name: 🧪 تست‌های Importers
         env:
@@ -209,7 +210,6 @@ jobs:
           else
             echo "⚠️ تست‌های test_importers یافت نشد، رد می‌شود."
           fi
-        continue-on-error: true
 
       - name: 🧪 تست‌های Rules
         env:
@@ -220,7 +220,6 @@ jobs:
           else
             echo "⚠️ تست‌های test_rules یافت نشد، رد می‌شود."
           fi
-        continue-on-error: true
 
       - name: 🧪 تست‌های عمومی (tests/*.py)
         env:
@@ -231,7 +230,6 @@ jobs:
           else
             echo "⚠️ تست عمومی یافت نشد."
           fi
-        continue-on-error: true
 
       - name: 🏃 پردازش همه‌ی فایل‌های data/input/
         env:
@@ -321,7 +319,6 @@ jobs:
       - name: 🏃 پردازش همه‌ی فایل‌های input با داکر
         run: |
           mkdir -p data/output
-          # اجازه نوشتن روی volume mount (کانتینر با appuser یا root)
           chmod -R a+rwX data/output
 
           found_any=false
@@ -332,7 +329,6 @@ jobs:
               echo "🐳 داکر در حال پردازش: $input_file"
               echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-              # --user root تا Permission denied روی volume پیش نیاید
               docker run --rm --user root \
                 -v "$(pwd)/data:/app/data" \
                 -v "$(pwd)/Book1.xlsx:/app/Book1.xlsx" \
