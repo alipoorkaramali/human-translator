@@ -108,7 +108,7 @@ jobs:
           check_file "src/__init__.py"
           check_file "src/main.py"
           check_file "src/utils.py"
-          check_file "src/token.py"
+          check_file "src/ht_token.py"
 
           echo "──── core ────"
           check_dir  "src/core"
@@ -165,7 +165,7 @@ jobs:
         run: |
           echo "──── utils و token ────"
           python -c "from src.utils import number_type, is_np_boundary; print('✅ utils OK')"
-          python -c "from src.token import Token; print('✅ token OK')"
+          python -c "from src.ht_token import Token; print('✅ token OK')"
 
           echo "──── core ────"
           python -c "from src.core.context import Context; print('✅ context OK')"
