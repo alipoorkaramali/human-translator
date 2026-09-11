@@ -1,20 +1,16 @@
 """
-قانون little / a little بر اساس countable / uncountable:
+قانون little / a little بر اساس countable / uncountable
+(منطق هم‌تراز با نوت‌بوک):
 
-  • little + uncountable noun → m1 (quantifier)
-  • little + countable noun   → m2 (adjective = small)
-  • a little                  → همیشه m1 (حتی با countable)
-
-مثال:
-  little water     → m1
-  little book      → m2
-  a little water   → m1
-  a little book    → m1
+  • فقط وقتی کلمهٔ بعدی برچسب N داشته باشد
+  • "a little" (توکن مرکب یا a + little) → همیشه m1 + role quantifier
+  • little + uncountable → m1 + determiner/quantifier
+  • little + countable   → m2 + adjective
 """
 from typing import List, TYPE_CHECKING
 
 from src.core.rule_base import Rule
-from src.utils import is_uncountable_noun, is_np_boundary
+from src.utils import is_uncountable_noun
 
 if TYPE_CHECKING:
     from src.ht_token import Token
@@ -32,54 +28,53 @@ class LittleRule(Rule):
         for i, tok in enumerate(tokens):
             if tok.locked:
                 continue
-            if tok.word.lower() != "little":
+
+            current = tok.word.lower()
+            # شامل "little" و توکن مرکب "a little"
+            if "little" not in current:
                 continue
 
-            # --- a little → همیشه m1 ---
-            if i >= 1 and tokens[i - 1].word.lower() == "a":
-                if tok.label != "m1":
+            # فقط اگر کلمهٔ بعدی وجود داشته باشد و اسم (N) باشد
+            if i + 1 >= len(tokens) or tokens[i + 1].label != "N":
+                continue
+
+            next_noun = tokens[i + 1].word
+
+            # استثنا: "a little" به‌صورت یک توکن → همیشه quantifier
+            if current == "a little":
+                if tok.label != "m1" or tok.role != "determiner/quantifier":
                     tok.label = "m1"
+                    tok.role = "determiner/quantifier"
                     changed = True
-                # خودِ a را هم m1 نگه می‌داریم اگر خالی/متفاوت بود
+                continue
+
+            # الگوی جدا: a + little
+            if (
+                current == "little"
+                and i >= 1
+                and tokens[i - 1].word.lower() == "a"
+                and not tokens[i - 1].locked
+            ):
                 prev = tokens[i - 1]
-                if not prev.locked and prev.label not in ("m1",):
+                if prev.label != "m1":
                     prev.label = "m1"
                     changed = True
+                if tok.label != "m1" or tok.role != "determiner/quantifier":
+                    tok.label = "m1"
+                    tok.role = "determiner/quantifier"
+                    changed = True
                 continue
 
-            # --- little + noun بعدی ---
-            noun = self._next_noun(tokens, i)
-            if noun is None:
-                continue
+            # little به‌تنهایی
+            if current == "little":
+                if is_uncountable_noun(next_noun, ctx):
+                    new_label, new_role = "m1", "determiner/quantifier"
+                else:
+                    new_label, new_role = "m2", "adjective"
 
-            if is_uncountable_noun(noun.word, ctx):
-                new_label = "m1"  # quantifier
-            else:
-                new_label = "m2"  # adjective = small
-
-            if tok.label != new_label:
-                tok.label = new_label
-                changed = True
+                if tok.label != new_label or tok.role != new_role:
+                    tok.label = new_label
+                    tok.role = new_role
+                    changed = True
 
         return changed
-
-    @staticmethod
-    def _next_noun(tokens: List["Token"], i: int):
-        """اولین کاندید اسم بعد از little در همین NP."""
-        j = i + 1
-        while j < len(tokens):
-            t = tokens[j]
-            w = t.word.lower()
-            if is_np_boundary(w):
-                return None
-            # از روی صفت/قید/عدد رد شو تا به اسم برسیم
-            if t.label in ("m2", "adv", "m1") or t.numtype:
-                j += 1
-                continue
-            if t.label == "N":
-                return t
-            # بدون برچسب: احتمالاً اسم
-            if t.label == "" and w.isalpha():
-                return t
-            j += 1
-        return None
