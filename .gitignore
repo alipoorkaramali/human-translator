@@ -1,28 +1,77 @@
-# فایل‌های خروجی
-*.xlsx
-*.xls
+# =============================================================================
+# .gitignore — فایلهای نادیدهگرفتهشده در مخزن human-translator
+# =============================================================================
+
+# ---------- فایلهای خروجی ----------
+output*.xlsx
+output*.txt
+data/output/
 *.csv
-output.txt
 
-# کش پایتون
+# ⚠️ Book1.xlsx باید در مخزن بماند (CI و Docker به آن وابستهاند)
+!Book1.xlsx
+
+# ---------- کش پایتون ----------
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+*.so
+.Python
 
-# محیط مجازی
+# ---------- بیلد و توزیع ----------
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# ---------- تست و lint ----------
+.pytest_cache/
+.mypy_cache/
+.flake8_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+
+# ---------- محیط مجازی ----------
 venv/
-.env
-.venv
+.venv/
+env/
+ENV/
 
-# داده‌های NLTK (اگر اشتباهی دانلود شد)
+# ---------- متغیرهای محیطی و رازها ----------
+.env
+.env.*
+*.pem
+*.key
+
+# ---------- دادههای NLTK (اگر اشتباهی دانلود شد) ----------
 nltk_data/
 
-# فایل‌های سیستمی
+# ---------- IDE / Editor ----------
+.vscode/
+.idea/
+.editorconfig
+*.swp
+*.swo
+*~
+
+# ---------- فایلهای سیستمی ----------
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# لاگ‌ها و فایل‌های موقت
+# ---------- لاگها و فایلهای موقت ----------
 *.log
 *.tmp
-nltk_data/ 
+*.bak
+*.orig
+*.rej
+logs/
+tmp/
+temp/
+
+# ---------- Jupyter ----------
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
