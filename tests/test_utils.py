@@ -86,7 +86,6 @@ class TestPossessiveBeforeIndex:
         assert possessive_before_index(words, 2) is True
 
     def test_blocked_by_strong_punct(self):
-        # ضمیر قبل از نقطه → بعد از نقطه بی‌اثر
         words = ["his", ".", "books"]
         assert possessive_before_index(words, 2) is False
 
@@ -105,7 +104,6 @@ class TestPossessiveBeforeIndex:
         assert possessive_before_index(tokens, 1) is True
 
     def test_comma_does_not_block(self):
-        # ویرگول در نسخهٔ نوت‌بوک توقف‌کننده نبود
         words = ["his", ",", "books"]
         assert possessive_before_index(words, 2) is True
 
@@ -127,8 +125,16 @@ class TestNPBoundary:
             assert is_np_boundary(p) is True
 
     def test_verb(self):
-        # 'run' is a verb in WordNet
-        assert is_np_boundary("run") is True
+        # فقط حس غالب (syns[0]) معیار است — نه any verb sense
+        # 'believe' / 'happen' حس اول WordNet فعل است
+        assert is_np_boundary("believe") is True
+        assert is_np_boundary("happen") is True
+
+    def test_noun_primary_not_boundary(self):
+        # 'run' و 'book' حس غالب اسم‌اند → مرز NP نیستند
+        # (قبلاً any(verb) آن‌ها را به اشتباه مرز می‌کرد)
+        assert is_np_boundary("run") is False
+        assert is_np_boundary("book") is False
 
     def test_regular_word(self):
         assert is_np_boundary("hello") is False
@@ -165,7 +171,6 @@ class TestSyllableCount:
         assert syllable_count("happy") >= 2
 
     def test_unknown_word(self):
-        # fallback vowel count
         assert syllable_count("xyzq") >= 1
 
 
