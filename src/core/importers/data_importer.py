@@ -1,5 +1,7 @@
-"""واردکنندهٔ ۱: Book1.xlsx + NLTK (WordNet + cmudict)"""
+"""واردکنندهٔ ۱: Book1.xlsx + NLTK (WordNet + cmudict) + prepositions"""
 import os
+from pathlib import Path
+
 import pandas as pd
 import nltk
 from nltk.corpus import wordnet as wn
@@ -24,6 +26,23 @@ def load_nltk_data(nltk_data_path: str = None):
             nltk.download(pkg, quiet=True)
 
 
+def _load_prepositions_file() -> set:
+    """data/prepositions.txt — یک کلمه در هر خط."""
+    candidates = [
+        Path('data/prepositions.txt'),
+        Path(__file__).resolve().parents[3] / 'data' / 'prepositions.txt',
+    ]
+    for p in candidates:
+        if p.is_file():
+            words = set()
+            for line in p.read_text(encoding='utf-8').splitlines():
+                w = line.strip().lower()
+                if w and not w.startswith('#'):
+                    words.add(w)
+            return words
+    return set()
+
+
 def load_excel(excel_file: str = 'Book1.xlsx') -> dict:
     df = pd.read_excel(excel_file, engine='openpyxl')
 
@@ -41,9 +60,12 @@ def load_excel(excel_file: str = 'Book1.xlsx') -> dict:
     intensifier_set = col('adverbs of intensifiers')
     vague_quant_set = col('vague_quantifiers')
 
-    # ستون اختیاری preposition / prepositions در Excel
     excel_preps = col('preposition') | col('prepositions')
-    preposition_set = set(DEFAULT_PREPOSITIONS) | excel_preps
+    preposition_set = (
+        set(DEFAULT_PREPOSITIONS)
+        | _load_prepositions_file()
+        | excel_preps
+    )
 
     return {
         'phrases_set':      article_set | demotrative_set | simple_set | compound_set,
@@ -66,7 +88,7 @@ def build_context(excel_file: str = 'Book1.xlsx',
     for k, v in load_excel(excel_file).items():
         setattr(ctx, k, v)
     if not getattr(ctx, 'preposition_set', None):
-        ctx.preposition_set = set(DEFAULT_PREPOSITIONS)
+        ctx.preposition_set = set(DEFAULT_PREPOSITIONS) | _load_prepositions_file()
     ctx.cmu = cmudict.dict()
     ctx.wn  = wn
     return ctx
