@@ -60,6 +60,7 @@ jobs:
           else
             echo "⚠️ requirements-dev.txt موجود نیست"
           fi
+          python -m spacy download en_core_web_sm
 
       - name: 📥 دانلود دیتاهای NLTK
         run: |
@@ -122,9 +123,8 @@ jobs:
           check_optional "src/core/importers/data_importer.py"
           check_optional "src/core/importers/np_importer.py"
           check_optional "src/core/importers/vp_importer.py"
-          check_optional "src/core/importers/m1_importer.py"
 
-          echo "──── rules/np (Nominal Phrase) ────"
+          echo "──── rules/np ────"
           check_dir  "src/rules"
           check_file "src/rules/__init__.py"
           check_dir  "src/rules/np"
@@ -134,7 +134,7 @@ jobs:
             check_file "src/rules/np/$sub/__init__.py"
           done
 
-          echo "──── rules/vp (Verbal Phrase) ────"
+          echo "──── rules/vp ────"
           check_dir  "src/rules/vp"
           check_file "src/rules/vp/__init__.py"
           for sub in vp1 vp2 vp3 special; do
@@ -154,7 +154,6 @@ jobs:
             ls -la data/input/
           fi
 
-          echo ""
           if [ $errors -gt 0 ]; then
             echo "❌ $errors خطا در ساختار پروژه."
             exit 1
@@ -165,16 +164,12 @@ jobs:
         env:
           PYTHONPATH: .
         run: |
-          echo "──── utils و token ────"
           python -c "from src.utils import number_type, is_np_boundary; print('✅ utils OK')"
           python -c "from src.ht_token import Token; print('✅ token OK')"
-
-          echo "──── core ────"
           python -c "from src.core.context import Context; print('✅ context OK')"
           python -c "from src.core.rule_base import Rule, RuleRegistry; print('✅ rule_base OK')"
           python -c "from src.core.processor import Processor; print('✅ processor OK')"
-
-          echo "──── importers ────"
+          python -c "import spacy; nlp=spacy.load('en_core_web_sm'); print('✅ spaCy OK', nlp('I have three books')[1].pos_)"
           python -c "
           try:
               from src.core.importers import build_context, import_np_rules, import_vp_rules
@@ -182,8 +177,6 @@ jobs:
           except (ImportError, AttributeError) as e:
               print(f'⚠️  importers: {e}')
           "
-
-          echo "──── pipeline ────"
           python -c "
           try:
               from src.core.pipeline import Pipeline

@@ -1,5 +1,13 @@
 """
-قوانین نهایی WordNet — بدون تداخل با TheOrdinal و MoreAfterM1Final.
+نقش‌های معنایی و تنظیمات نهایی — بدون POS از WordNet.
+
+POS ساختاری (N/V/m2/adv) توسط SpacyPosRule انجام می‌شود.
+این Rule:
+  - role برای m1 چندکلمه‌ای / quantifier
+  - intensifier → adv
+  - more/most قبل از صفت چندسیلابی → adv (اگر m1 قبل نباشد)
+  - of / punctuation / articles
+  - fallback نقش از روی برچسب
 """
 from typing import List, TYPE_CHECKING
 import re
@@ -11,14 +19,13 @@ if TYPE_CHECKING:
     from src.ht_token import Token
     from src.core.context import Context
 
-_POS_ROLE = {
-    "n": "noun", "v": "verb", "a": "adjective",
-    "s": "adjective (satellite)", "r": "adverb",
-}
-_POS_LABEL = {"a": "m2", "s": "m2", "r": "adv", "n": "N", "v": "V"}
 _LABEL_ROLE = {
-    "m1": "determiner/quantifier", "m2": "adjective",
-    "adv": "adverb", "N": "noun", "V": "verb", "": "function word",
+    "m1": "determiner/quantifier",
+    "m2": "adjective",
+    "adv": "adverb",
+    "N": "noun",
+    "V": "verb",
+    "": "function word",
 }
 
 
@@ -29,10 +36,9 @@ class WordNetFinalizeRule(Rule):
 
     def apply(self, tokens: List["Token"], ctx: "Context") -> bool:
         changed = False
-        wn = getattr(ctx, "wn", None)
         intensifiers = getattr(ctx, "intensifier_set", set()) or set()
 
-        for i, tok in enumerate(tokens):
+        for tok in tokens:
             if tok.locked:
                 continue
             w = tok.word
@@ -49,38 +55,11 @@ class WordNetFinalizeRule(Rule):
                 tok.role = "determiner/quantifier"
                 changed = True
 
-            # ordinal را TheOrdinalRule مدیریت می‌کند — اینجا دست نزن
+            # ordinal را TheOrdinalRule مدیریت می‌کند
             if tok.numtype == "ordinal":
                 continue
 
-            if wn is None:
-                continue
-
-            try:
-                syns = wn.synsets(w.lower())
-            except Exception:
-                syns = []
-
-            if not syns:
-                if tok.role in ("", "unknown"):
-                    tok.role = "unknown"
-                continue
-
-            pos = syns[0].pos()
-            new_role = _POS_ROLE.get(pos, "unknown")
-            if tok.role in ("", "unknown"):
-                tok.role = new_role
-                changed = True
-            elif tok.role in ("determiner/quantifier",) and label != "m1":
-                tok.role = new_role
-                changed = True
-
-            if label in ("", "m2", "N", "V") and pos in _POS_LABEL:
-                new_label = _POS_LABEL[pos]
-                if tok.label != new_label:
-                    tok.label = new_label
-                    changed = True
-
+        # intensifierها
         for tok in tokens:
             if tok.locked:
                 continue
@@ -105,7 +84,9 @@ class WordNetFinalizeRule(Rule):
                 prev = tokens[j]
                 if is_np_boundary(prev.word):
                     break
-                if prev.label in ("m2", "adv") or prev.word.lower() in {",", "and", "but", "or"}:
+                if prev.label in ("m2", "adv") or prev.word.lower() in {
+                    ",", "and", "but", "or"
+                }:
                     break
                 if prev.label == "m1":
                     has_m1 = True
@@ -113,7 +94,7 @@ class WordNetFinalizeRule(Rule):
                 j -= 1
 
             if has_m1:
-                continue  # MoreAfterM1Final مسئول است
+                continue
 
             if tok.label != "adv" or tok.role != "adverb (comparative/superlative)":
                 tok.label = "adv"
