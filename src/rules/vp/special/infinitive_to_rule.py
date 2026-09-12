@@ -1,21 +1,17 @@
 """
-قوانین infinitive و semi-modal برای VP — از بلند به کوتاه:
+قوانین جامع infinitive / semi-modal برای VP (از بلند به کوتاه).
 
-  be going to (+V)     am/is/are/was/were going to (leave)
-  be about to (+V)
-  be supposed to (+V)
-  be able to (+V)
-  be allowed to (+V)
-  be meant to (+V)
+پوشش اصلی:
+  have/has/had got to (+V)
+  would like/love/prefer/hate/want to (+V)
+  be going/about/supposed/able/allowed/meant/forced/... to (+V)
+  be to (+V)          — آیندهٔ رسمی: is to arrive
   have/has/had to (+V)
-  used to (+V)
-  ought to (+V)
-  V + to + V           want to go
-  V + to               want to  (فقط اگر بعدش NP نباشد)
+  need to / got to / used to / ought to / dare to (+V)
+  V + to + V          — want to go, try to help, ...
+  V + to              — فقط اگر بعدش NP نباشد
 
-برچسب نهایی: V
-نقش: توضیح نوع ساخت
-to در این ساخت‌ها رابط فعلی (infinitive / semi-modal marker) است.
+برچسب نهایی: V | to = رابط فعلی (verb linker)
 """
 from typing import List, Tuple, TYPE_CHECKING
 
@@ -27,22 +23,58 @@ if TYPE_CHECKING:
 
 _BE = {"be", "am", "is", "are", "was", "were", "been", "being"}
 _HAVE = {"have", "has", "had"}
+_WOULD = {"would", "'d"}
 
-# الگو: BE + mid... + to  [+ V اختیاری]
+# BE + mid + to [+ V]
 _BE_TO_PATTERNS: Tuple[Tuple[Tuple[str, ...], str], ...] = (
     (("going",), "be going to"),
     (("about",), "be about to"),
     (("supposed",), "be supposed to"),
     (("able",), "be able to"),
+    (("unable",), "be unable to"),
     (("allowed",), "be allowed to"),
     (("meant",), "be meant to"),
+    (("forced",), "be forced to"),
+    (("required",), "be required to"),
+    (("expected",), "be expected to"),
+    (("prepared",), "be prepared to"),
     (("ready",), "be ready to"),
     (("willing",), "be willing to"),
+    (("unwilling",), "be unwilling to"),
+    (("eager",), "be eager to"),
+    (("keen",), "be keen to"),
+    (("happy",), "be happy to"),
+    (("glad",), "be glad to"),
+    (("reluctant",), "be reluctant to"),
     (("likely",), "be likely to"),
     (("unlikely",), "be unlikely to"),
+    (("apt",), "be apt to"),
     (("due",), "be due to"),
     (("bound",), "be bound to"),
+    (("set",), "be set to"),
+    (("poised",), "be poised to"),
+    (("liable",), "be liable to"),
+    (("certain",), "be certain to"),
+    (("sure",), "be sure to"),
 )
+
+# would + X + to [+ V]
+_WOULD_TO_MIDS = {
+    "like": "would like to",
+    "love": "would love to",
+    "prefer": "would prefer to",
+    "hate": "would hate to",
+    "want": "would want to",
+}
+
+# فعل‌های تک‌کلمه‌ای که تقریباً همیشه با to می‌آیند (حتی اگر برچسب هنوز V نباشد)
+_FIXED_TO_HEADS = {
+    "need": "need to",
+    "ought": "ought to",
+    "used": "used to",
+    "dare": "dare to",
+    "got": "got to",
+}
 
 _NP_START_LABELS = {"N", "m1", "m2", "m3", "m4"}
 _NP_START_WORDS = {
@@ -75,7 +107,6 @@ def _looks_like_np_start(tok: "Token") -> bool:
 
 
 def _can_merge_range(tokens: List["Token"], start: int, end: int) -> bool:
-    """end exclusive — هیچ توکن locked نباشد."""
     if end > len(tokens):
         return False
     for j in range(start, end):
@@ -84,14 +115,9 @@ def _can_merge_range(tokens: List["Token"], start: int, end: int) -> bool:
     return True
 
 
-def _merge(
-    tokens: List["Token"],
-    start: int,
-    end: int,
-    role: str,
-) -> None:
+def _merge(tokens: List["Token"], start: int, end: int, role: str) -> None:
     combined_word = " ".join(t.word for t in tokens[start:end])
-    combined = Token(
+    tokens[start:end] = [Token(
         word=combined_word,
         label="V",
         numtype="",
@@ -99,8 +125,16 @@ def _merge(
         index=tokens[start].index,
         original=combined_word,
         locked=False,
-    )
-    tokens[start:end] = [combined]
+    )]
+
+
+def _optional_following_v(
+    tokens: List["Token"], end: int, base_role: str
+) -> Tuple[int, str]:
+    """اگر بعد از to فعل باشد، آن را هم داخل ادغام کن."""
+    if end < len(tokens) and _is_verb_tok(tokens[end]):
+        return end + 1, base_role.replace("; to=", "+V; to=")
+    return end, base_role
 
 
 class InfinitiveToRule(Rule):
@@ -113,32 +147,65 @@ class InfinitiveToRule(Rule):
         i = 0
 
         while i < len(tokens):
-            # ============================================================
-            # ۱) be + (going|about|supposed|able|...) + to [+ V]
-            # ============================================================
+            # ----------------------------------------------------------
+            # ۱) have/has/had + got + to [+ V]
+            # ----------------------------------------------------------
+            if (
+                _w(tokens[i]) in _HAVE
+                and not tokens[i].locked
+                and i + 2 < len(tokens)
+                and _w(tokens[i + 1]) == "got"
+                and _is_to(tokens[i + 2])
+                and _can_merge_range(tokens, i, i + 3)
+            ):
+                end = i + 3
+                role = "verb (semi-modal: have got to; to=verb linker)"
+                end, role = _optional_following_v(tokens, end, role)
+                if end == i + 3 and end < len(tokens) and _looks_like_np_start(tokens[end]):
+                    i += 1
+                    continue
+                _merge(tokens, i, end, role)
+                changed = True
+                i += 1
+                continue
+
+            # ----------------------------------------------------------
+            # ۲) would + like|love|prefer|hate|want + to [+ V]
+            # ----------------------------------------------------------
+            if (
+                _w(tokens[i]) in _WOULD
+                and not tokens[i].locked
+                and i + 2 < len(tokens)
+                and _w(tokens[i + 1]) in _WOULD_TO_MIDS
+                and _is_to(tokens[i + 2])
+                and _can_merge_range(tokens, i, i + 3)
+            ):
+                name = _WOULD_TO_MIDS[_w(tokens[i + 1])]
+                end = i + 3
+                role = f"verb (semi-modal: {name}; to=verb linker)"
+                end, role = _optional_following_v(tokens, end, role)
+                _merge(tokens, i, end, role)
+                changed = True
+                i += 1
+                continue
+
+            # ----------------------------------------------------------
+            # ۳) be + mid + to [+ V]
+            # ----------------------------------------------------------
             if _w(tokens[i]) in _BE and not tokens[i].locked:
                 matched = False
                 for mid, name in _BE_TO_PATTERNS:
                     mid_len = len(mid)
-                    need = 1 + mid_len + 1  # be + mid + to
+                    need = 1 + mid_len + 1
                     if not _can_merge_range(tokens, i, i + need):
                         continue
-                    ok_mid = all(
-                        _w(tokens[i + 1 + k]) == mid[k] for k in range(mid_len)
-                    )
-                    if not ok_mid:
+                    if not all(_w(tokens[i + 1 + k]) == mid[k] for k in range(mid_len)):
                         continue
                     if not _is_to(tokens[i + 1 + mid_len]):
                         continue
-
                     end = i + need
                     role = f"verb (semi-modal: {name}; to=verb linker)"
-                    if end < len(tokens) and _is_verb_tok(tokens[end]):
-                        end += 1
-                        role = (
-                            f"verb (semi-modal: {name}+V; to=verb linker)"
-                        )
-
+                    end, role = _optional_following_v(tokens, end, role)
                     _merge(tokens, i, end, role)
                     changed = True
                     matched = True
@@ -147,9 +214,26 @@ class InfinitiveToRule(Rule):
                 if matched:
                     continue
 
-            # ============================================================
-            # ۲) have/has/had + to [+ V]
-            # ============================================================
+                # be + to + V  (آیندهٔ رسمی: is to arrive)
+                if (
+                    i + 2 < len(tokens)
+                    and _is_to(tokens[i + 1])
+                    and _is_verb_tok(tokens[i + 2])
+                    and _can_merge_range(tokens, i, i + 3)
+                ):
+                    _merge(
+                        tokens,
+                        i,
+                        i + 3,
+                        "verb (semi-modal: be to+V; to=verb linker)",
+                    )
+                    changed = True
+                    i += 1
+                    continue
+
+            # ----------------------------------------------------------
+            # ۴) have/has/had + to [+ V]
+            # ----------------------------------------------------------
             if (
                 _w(tokens[i]) in _HAVE
                 and not tokens[i].locked
@@ -159,8 +243,7 @@ class InfinitiveToRule(Rule):
                 end = i + 2
                 role = "verb (semi-modal: have to; to=verb linker)"
                 if end < len(tokens) and _is_verb_tok(tokens[end]):
-                    end += 1
-                    role = "verb (semi-modal: have to+V; to=verb linker)"
+                    end, role = _optional_following_v(tokens, end, role)
                 elif end < len(tokens) and _looks_like_np_start(tokens[end]):
                     i += 1
                     continue
@@ -170,21 +253,23 @@ class InfinitiveToRule(Rule):
                     i += 1
                     continue
 
-            # ============================================================
-            # ۳) used + to [+ V]
-            # ============================================================
+            # ----------------------------------------------------------
+            # ۵) need/ought/used/dare/got + to [+ V]
+            # ----------------------------------------------------------
+            head = _w(tokens[i])
             if (
-                _w(tokens[i]) == "used"
+                head in _FIXED_TO_HEADS
                 and not tokens[i].locked
                 and i + 1 < len(tokens)
                 and _is_to(tokens[i + 1])
             ):
+                name = _FIXED_TO_HEADS[head]
                 end = i + 2
-                role = "verb (semi-modal: used to; to=verb linker)"
+                role = f"verb (semi-modal: {name}; to=verb linker)"
                 if end < len(tokens) and _is_verb_tok(tokens[end]):
-                    end += 1
-                    role = "verb (semi-modal: used to+V; to=verb linker)"
+                    end, role = _optional_following_v(tokens, end, role)
                 elif end < len(tokens) and _looks_like_np_start(tokens[end]):
+                    # used to the / got to the
                     i += 1
                     continue
                 if _can_merge_range(tokens, i, end):
@@ -193,29 +278,9 @@ class InfinitiveToRule(Rule):
                     i += 1
                     continue
 
-            # ============================================================
-            # ۴) ought + to [+ V]
-            # ============================================================
-            if (
-                _w(tokens[i]) == "ought"
-                and not tokens[i].locked
-                and i + 1 < len(tokens)
-                and _is_to(tokens[i + 1])
-            ):
-                end = i + 2
-                role = "verb (semi-modal: ought to; to=verb linker)"
-                if end < len(tokens) and _is_verb_tok(tokens[end]):
-                    end += 1
-                    role = "verb (semi-modal: ought to+V; to=verb linker)"
-                if _can_merge_range(tokens, i, end):
-                    _merge(tokens, i, end, role)
-                    changed = True
-                    i += 1
-                    continue
-
-            # ============================================================
-            # ۵) V + to + V  (infinitive عمومی)
-            # ============================================================
+            # ----------------------------------------------------------
+            # ۶) V + to + V  (infinitive عمومی)
+            # ----------------------------------------------------------
             if (
                 i + 2 < len(tokens)
                 and _is_verb_tok(tokens[i])
@@ -232,9 +297,9 @@ class InfinitiveToRule(Rule):
                 i += 1
                 continue
 
-            # ============================================================
-            # ۶) V + to  (بدون NP بعدش)
-            # ============================================================
+            # ----------------------------------------------------------
+            # ۷) V + to  (بدون NP بعدش)
+            # ----------------------------------------------------------
             if (
                 i + 1 < len(tokens)
                 and _is_verb_tok(tokens[i])
