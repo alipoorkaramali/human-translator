@@ -2,6 +2,7 @@
 from .fraction_rule import FractionRule
 from .unit_of_rule import UnitOfRule
 from .simple_of_rule import SimpleOfRule
+from .compound_phrase import CompoundPhraseRule
 from .some_number_rule import SomeNumberRule
 from .double_m1_rule import DoubleM1Rule
 from .double_quantifier_rule import DoubleQuantifierRule
@@ -11,6 +12,7 @@ __all__ = [
     'FractionRule',
     'UnitOfRule',
     'SimpleOfRule',
+    'CompoundPhraseRule',
     'SomeNumberRule',
     'DoubleM1Rule',
     'DoubleQuantifierRule',
