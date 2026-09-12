@@ -4,6 +4,7 @@ from ..rule_base import RuleRegistry
 
 _M1_RULES = [
     ('src.rules.np.m1.fraction_rule', 'FractionRule'),
+    ('src.rules.np.m1.compound_number_rule', 'CompoundNumberRule'),
     ('src.rules.np.m1.article_rule', 'ArticleRule'),
     ('src.rules.np.m1.demonstrative_rule', 'DemonstrativeRule'),
     ('src.rules.np.m1.simple_of_rule', 'SimpleOfRule'),
