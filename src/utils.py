@@ -85,9 +85,9 @@ _PRONOUN_POSSESSIVES = {
 
 # ---------------------------------------------------------------------------
 # حروف اضافه — منبع پیش‌فرض مرز NP (قابل گسترش از Excel: preposition)
+# of و as عمداً مرز NP نیستند (قانون ض / of-quantifier).
 # ---------------------------------------------------------------------------
 DEFAULT_PREPOSITIONS = {
-    # مکان / جهت
     'in', 'on', 'at', 'by', 'with', 'from', 'to', 'for', 'about',
     'under', 'over', 'between', 'among', 'amongst', 'during', 'before',
     'after', 'since', 'until', 'till', 'into', 'onto', 'upon',
@@ -96,9 +96,6 @@ DEFAULT_PREPOSITIONS = {
     'beneath', 'within', 'without', 'against', 'toward', 'towards',
     'via', 'per', 'plus', 'minus', 'unlike', 'like', 'except', 'despite',
     'throughout', 'underneath', 'amid', 'amidst', 'atop',
-    # زمانی / سببی رایج
-    'of',  # of مرز NP در اسکن‌های lookback (جدا از قانون of quantifier)
-    'as',  # as در خیلی از lookbackها مرز مفید است
     'up', 'down', 'off', 'out', 'past', 'next',
 }
 
@@ -165,10 +162,7 @@ def is_np_boundary(token, preposition_set=None):
       - ربط‌دهنده‌ها (and/but/or/…)
       - فعل فقط اگر حس غالب WordNet (syns[0]) فعل باشد
 
-    نکته درباره to:
-      - to تک‌توکن → مرز است (حرف‌اضافه / قبل از ادغام infinitive)
-      - بعد از InfinitiveToRule توکن "want to go" چندکلمه‌ای است و
-        دیگر با این تابع به‌عنوان حرف‌اضافهٔ تنها تشخیص داده نمی‌شود
+    of و as عمداً در DEFAULT نیستند تا قانون ض و of-quantifier نشکنند.
     """
     if not token:
         return False
@@ -176,7 +170,6 @@ def is_np_boundary(token, preposition_set=None):
     if hasattr(token, "word"):
         t = str(token.word).lower()
 
-    # توکن چندکلمه‌ای ادغام‌شده مرز تک‌حرف‌اضافه نیست
     if " " in t:
         return False
 
