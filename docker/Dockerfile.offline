@@ -2,14 +2,23 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
+ENV NLTK_DATA=/usr/share/nltk_data \
+    PYTHONPATH=/app \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-# کپی دیتای NLTK از پروژه
+# وابستگی‌ها + مدل spaCy داخل ایمیج (بدون نیاز به اینترنت در runtime)
+# نکته: ساخت ایمیج باید یک‌بار با اینترنت انجام شود.
+RUN pip install --no-cache-dir -r requirements.txt \
+    && python -m spacy download en_core_web_sm \
+    && python -c "import spacy; spacy.load('en_core_web_sm'); print('spaCy model OK')"
+
+# کپی دیتای NLTK از پروژه (آفلاین)
 COPY nltk_data/ /usr/share/nltk_data/
-ENV NLTK_DATA=/usr/share/nltk_data
 
-# استخراج wordnet.zip
+# استخراج wordnet.zip در صورت نیاز
 RUN cd /usr/share/nltk_data/corpora && \
     if [ -f "wordnet.zip" ] && [ ! -d "wordnet" ]; then \
         python -c "import zipfile; zipfile.ZipFile('wordnet.zip').extractall('.')"; \
