@@ -18,7 +18,7 @@ _M1_RULES = [
 
 _M2_RULES = [
     ('src.rules.np.m2.more_most_rule', 'MoreMostRule'),
-    ('src.rules.np.m2.little_rule', 'LittleRule'),
+    # little به special منتقل شد
     ('src.rules.np.m2.hyphenated_rule', 'HyphenatedRule'),
 ]
 
@@ -27,7 +27,7 @@ _M3_RULES = [
 ]
 
 _M4_RULES = [
-    ('src.rules.np.m4.number_after_noun_rule', 'NumberAfterNounRule'),
+    # number_after_noun غیرفعال — فقط FinalFix بعد از WordNet
     ('src.rules.np.m4.ordinal_rule', 'OrdinalRule'),
 ]
 
@@ -44,8 +44,9 @@ _NP_SPECIAL_RULES = [
     ('src.rules.np.special.law_sh', 'LawShRule'),
     ('src.rules.np.special.law_z', 'LawZRule'),
     ('src.rules.np.special.the_ordinal', 'TheOrdinalRule'),
-    ('src.rules.np.special.final_fix', 'FinalFixAfterNounRule'),
     ('src.rules.np.special.wordnet_finalize', 'WordNetFinalizeRule'),
+    ('src.rules.np.special.little_rule', 'LittleRule'),  # بعد از WordNet
+    ('src.rules.np.special.final_fix', 'FinalFixAfterNounRule'),
     ('src.rules.np.special.more_after_m1_final_rule', 'MoreAfterM1FinalRule'),
 ]
 

@@ -12,9 +12,6 @@ from nltk.corpus import cmudict
 from pathlib import Path
 
 
-# =============================================================================
-# NLTK setup
-# =============================================================================
 def setup_nltk():
     """بررسی و آماده‌سازی دیتاهای NLTK."""
     nltk_path = os.environ.get('NLTK_DATA', '/usr/share/nltk_data')
@@ -44,9 +41,6 @@ def setup_nltk():
         logging.info("✅ همه‌ی دیتاهای NLTK موجود هستند.")
 
 
-# =============================================================================
-# مدیریت فایل و مسیرها
-# =============================================================================
 def ensure_dir(path):
     if path and not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
@@ -79,14 +73,15 @@ def setup_logging(level=logging.INFO, log_file=None):
     logging.basicConfig(level=level, format=log_format, handlers=handlers)
 
 
-# =============================================================================
-# توابع کمکی پردازش متن
-# =============================================================================
 PUNCTUATION = {".", ",", "!", "?", ";", ":", "…", "—", "–",
                ")", "(", "[", "]", "{", "}", "«", "»"}
 
-# علائم قوی که زنجیرهٔ lookback ملکی را قطع می‌کنند
 _STRONG_STOP = {".", "!", "?", ";", ":", "—"}
+
+_PRONOUN_POSSESSIVES = {
+    'my', 'your', 'his', 'her', 'its', 'our', 'their',
+    'mine', 'yours', 'hers', 'ours', 'theirs',
+}
 
 def is_punctuation(token):
     return token in PUNCTUATION
@@ -94,19 +89,22 @@ def is_punctuation(token):
 def is_and_word(word):
     return word.lower() == 'and'
 
+def is_possessive_pronoun(word):
+    """فقط ضمیر ملکی (my/his/…) — نه students'."""
+    if not word:
+        return False
+    return str(word).lower().strip() in _PRONOUN_POSSESSIVES
+
 def is_possessive_or_s(word):
     if not word:
         return False
     w = str(word).lower().strip()
     if w.endswith("'s") or w.endswith("s'"):
         return True
-    poss = {'my', 'your', 'his', 'her', 'its', 'our', 'their',
-            'mine', 'yours', 'hers', 'ours', 'theirs'}
-    return w in poss
+    return w in _PRONOUN_POSSESSIVES
 
 
 def _token_text(item) -> str:
-    """استخراج متن از str یا Token."""
     if item is None:
         return ""
     if hasattr(item, "word"):
@@ -115,18 +113,6 @@ def _token_text(item) -> str:
 
 
 def possessive_before_index(sequence, idx, max_lookback=15) -> bool:
-    """
-    آیا قبل از idx یک ضمیر/نشانهٔ ملکی هست و بین آن‌ها
-    هیچ علامت نگارشی قوی نیست؟
-
-    sequence: لیست str یا لیست Token
-    کاربرد: جلوگیری از اعمال بعضی قوانین (مثلاً جمع) وقتی دامنهٔ ملکی فعال است.
-
-    نسبت به نسخهٔ نوت‌بوک:
-      - پشتیبانی از Token علاوه بر str
-      - dash بلند (—) هم توقف‌کننده است
-      - idx نامعتبر → False امن
-    """
     if not sequence or idx is None or idx <= 0:
         return False
 
@@ -139,7 +125,6 @@ def possessive_before_index(sequence, idx, max_lookback=15) -> bool:
             j -= 1
             continue
 
-        # توقف کامل: ضمیرهای قبل از این علامت بی‌اثرند
         if text in _STRONG_STOP or text[-1:] in _STRONG_STOP:
             return False
 
@@ -152,6 +137,11 @@ def possessive_before_index(sequence, idx, max_lookback=15) -> bool:
 
 
 def is_np_boundary(token):
+    """
+    مرز NP.
+    برای فعل: فقط اگر حس غالب WordNet (syns[0]) فعل باشد.
+    any(verb) قبلی NP را بیش از حد تکه می‌کرد (book/run/…).
+    """
     if not token:
         return False
     t = str(token).lower()
@@ -172,13 +162,11 @@ def is_np_boundary(token):
     if t in {")", "]", "}", '"', "'"}:
         return True
     try:
-        # اگر هر حس فعلی (verb) داشته باشد، مرز NP است
-        # (فقط syns[0] کافی نیست؛ مثلاً 'run' اول اسم است)
         syns = wn.synsets(t)
-        if any(s.pos() == 'v' for s in syns):
+        # فقط حس غالب — مطابق نوت‌بوک اصلی
+        if syns and syns[0].pos() == 'v':
             return True
     except LookupError:
-        # wordnet هنوز دانلود نشده — بدون crash فقط False
         pass
     return False
 
@@ -216,11 +204,9 @@ def number_type(word, cardinal_numbers, ordinal_numbers):
     return None
 
 
-# ---------- cmudict با کش (برای سرعت) ----------
 _CMU_CACHE = None
 
 def _get_cmu():
-    """برگرداندن dict سی‌ام‌یو؛ اگر دیتا نباشد dict خالی."""
     global _CMU_CACHE
     if _CMU_CACHE is None:
         try:
@@ -239,7 +225,6 @@ def syllable_count(word):
             return sum(1 for p in pron if re.search(r'\d', p))
     except (KeyError, IndexError, TypeError):
         pass
-    # fallback: شمارش خوشه‌های واکه
     return max(1, len(re.findall(r'[aeiouy]+', w_clean, re.I)))
 
 
@@ -256,9 +241,12 @@ def is_uncountable_noun(word, ctx=None):
     if w in common_uncountables:
         return True
 
-    # پشتیبانی از Context جدید و dict قدیمی
     if ctx is not None:
-        vq = ctx.get('vague_quant_set') if hasattr(ctx, 'get') else None
+        vq = None
+        if hasattr(ctx, 'get'):
+            vq = ctx.get('vague_quant_set')
+        elif hasattr(ctx, 'vague_quant_set'):
+            vq = getattr(ctx, 'vague_quant_set', None)
         if vq and w in vq:
             return True
 
@@ -288,7 +276,6 @@ def is_uncountable_noun(word, ctx=None):
 
 
 def separate_punct_except_apostrophe(text):
-    """جدا کردن علائم نگارشی به جز آپوستروف."""
     pattern = r"([A-Za-z0-9])([.,!?;:\(\)\[\]\{\}«»…—–])"
     text = re.sub(pattern, r"\1 \2", text)
     pattern = r"([.,!?;:\(\)\[\]\{\}«»…—–])([A-Za-z0-9])"
@@ -296,17 +283,12 @@ def separate_punct_except_apostrophe(text):
     return text
 
 
-# =============================================================================
-# 🆕 توابع جدید برای Pipeline
-# =============================================================================
 def preprocess_text(text):
-    """سه مرحلهٔ نرمال‌سازی متن قبل از توکن‌سازی."""
     text = separate_punct_except_apostrophe(text)
     text = re.sub(r'([.!?])([a-zA-Z])', r'\1 \2', text)
-    text = re.sub(r"(\w)'s\b", r"\1 's", text)  # normalize possessives
+    text = re.sub(r"(\w)'s\b", r"\1 's", text)
     return text
 
 
 def tokenize_english(text):
-    """توکن‌سازی انگلیسی با حفظ 's و s' در انتها."""
     return re.findall(r"\w+(?:['’]s|s')|\S+", text)

@@ -1,4 +1,5 @@
 import pandas as pd
+import re
 
 from .processor import Processor
 from .rule_base import RuleRegistry
@@ -8,13 +9,12 @@ from .importers.vp_importer import import_vp_rules
 
 from src.utils import (
     preprocess_text, tokenize_english, number_type,
-    is_possessive_or_s,
+    is_possessive_pronoun,
 )
 from src.ht_token import Token
 
 
 class Pipeline:
-    # ترتیب اجرا: اول NP (m1..m5 + special) سپس VP (vp1..vp3 + special)
     PHASES = [
         'm1', 'm2', 'm3', 'm4', 'm5', 'special',
         'vp1', 'vp2', 'vp3', 'vp_special',
@@ -40,10 +40,13 @@ class Pipeline:
 
             if nt:
                 tokens.append(Token(w, 'm1', nt, index=i))
-            elif is_possessive_or_s(w):
+            elif is_possessive_pronoun(w):
+                # فقط ضمیر ملکی → m3 ؛ students'/children's برای PossessiveRule می‌مانند
                 tokens.append(Token(w, 'm3', '', index=i))
             elif wl in self.ctx.intensifier_set:
                 tokens.append(Token(w, 'adv', '', index=i))
+            elif wl in self.ctx.article_set or wl in getattr(self.ctx, 'demotrative_set', set()):
+                tokens.append(Token(w, 'm1', '', index=i))
             elif wl in self.ctx.phrases_set:
                 tokens.append(Token(w, 'm1', '', index=i))
             else:

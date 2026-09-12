@@ -9,6 +9,7 @@ from .law_z import LawZRule
 from .the_ordinal import TheOrdinalRule
 from .final_fix import FinalFixAfterNounRule
 from .wordnet_finalize import WordNetFinalizeRule
+from .little_rule import LittleRule
 from .more_after_m1_final_rule import MoreAfterM1FinalRule
 
 __all__ = [
@@ -22,5 +23,6 @@ __all__ = [
     'TheOrdinalRule',
     'FinalFixAfterNounRule',
     'WordNetFinalizeRule',
+    'LittleRule',
     'MoreAfterM1FinalRule',
 ]
