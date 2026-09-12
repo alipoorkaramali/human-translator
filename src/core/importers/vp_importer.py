@@ -15,6 +15,7 @@ _VP3_RULES = [
 ]
 
 _VP_SPECIAL_RULES = [
+    ('src.rules.vp.special.infinitive_to_rule', 'InfinitiveToRule'),
     ('src.rules.vp.special.placeholder_rule', 'VpSpecialPlaceholderRule'),
 ]
 
