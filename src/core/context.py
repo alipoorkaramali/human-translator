@@ -7,7 +7,7 @@ from typing import Set, Dict, Any
 
 @dataclass
 class Context:
-    # 9 مجموعه از Book1.xlsx
+    # مجموعه‌ها از Book1.xlsx (+ پیش‌فرض‌ها)
     phrases_set:      Set[str] = field(default_factory=set)
     cardinal_numbers: Set[str] = field(default_factory=set)
     ordinal_numbers:  Set[str] = field(default_factory=set)
@@ -17,6 +17,7 @@ class Context:
     compound_set:     Set[str] = field(default_factory=set)
     intensifier_set:  Set[str] = field(default_factory=set)
     vague_quant_set:  Set[str] = field(default_factory=set)
+    preposition_set:  Set[str] = field(default_factory=set)
 
     # دیکشنری‌های بارگذاری‌شده
     cmu: Dict[str, Any] = field(default_factory=dict)
@@ -25,9 +26,6 @@ class Context:
     # محل ذخیرهٔ داده‌های جانبی
     extra: Dict[str, Any] = field(default_factory=dict)
 
-    # ------------------------------------------------------------------
-    # سازگاری کامل با dict قدیمی
-    # ------------------------------------------------------------------
     def __getitem__(self, key: str):
         return getattr(self, key)
 
@@ -42,17 +40,12 @@ class Context:
             'phrases_set', 'cardinal_numbers', 'ordinal_numbers',
             'article_set', 'demotrative_set', 'simple_set',
             'compound_set', 'intensifier_set', 'vague_quant_set',
+            'preposition_set',
         ]
 
-    # ------------------------------------------------------------------
-    # پر کردن از tuple (خروجی load_phrases_from_excel)
-    # ------------------------------------------------------------------
     def update_from_tuple(self, tup: tuple):
         """
-        ترتیب tuple:
-            (phrases_set, cardinal_numbers, ordinal_numbers, article_set,
-             demotrative_set, simple_set, compound_set, intensifier_set,
-             vague_quant_set)
+        ترتیب tuple قدیمی (۹ تایی) — preposition جدا از Excel/default پر می‌شود.
         """
         (self.phrases_set, self.cardinal_numbers, self.ordinal_numbers,
          self.article_set, self.demotrative_set, self.simple_set,

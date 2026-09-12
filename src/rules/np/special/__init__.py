@@ -8,6 +8,7 @@ from .law_sh import LawShRule
 from .law_z import LawZRule
 from .the_ordinal import TheOrdinalRule
 from .spacy_pos_rule import SpacyPosRule
+from .preposition_rule import PrepositionRule
 from .final_fix import FinalFixAfterNounRule
 from .wordnet_finalize import WordNetFinalizeRule
 from .little_rule import LittleRule
@@ -23,6 +24,7 @@ __all__ = [
     'LawZRule',
     'TheOrdinalRule',
     'SpacyPosRule',
+    'PrepositionRule',
     'FinalFixAfterNounRule',
     'WordNetFinalizeRule',
     'LittleRule',

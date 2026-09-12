@@ -6,6 +6,7 @@ from nltk.corpus import wordnet as wn
 from nltk.corpus import cmudict
 
 from ..context import Context
+from src.utils import DEFAULT_PREPOSITIONS
 
 
 def load_nltk_data(nltk_data_path: str = None):
@@ -40,6 +41,10 @@ def load_excel(excel_file: str = 'Book1.xlsx') -> dict:
     intensifier_set = col('adverbs of intensifiers')
     vague_quant_set = col('vague_quantifiers')
 
+    # ستون اختیاری preposition / prepositions در Excel
+    excel_preps = col('preposition') | col('prepositions')
+    preposition_set = set(DEFAULT_PREPOSITIONS) | excel_preps
+
     return {
         'phrases_set':      article_set | demotrative_set | simple_set | compound_set,
         'cardinal_numbers': cardinal_set,
@@ -50,6 +55,7 @@ def load_excel(excel_file: str = 'Book1.xlsx') -> dict:
         'compound_set':     compound_set,
         'intensifier_set':  intensifier_set,
         'vague_quant_set':  vague_quant_set,
+        'preposition_set':  preposition_set,
     }
 
 
@@ -59,6 +65,8 @@ def build_context(excel_file: str = 'Book1.xlsx',
     ctx = Context()
     for k, v in load_excel(excel_file).items():
         setattr(ctx, k, v)
+    if not getattr(ctx, 'preposition_set', None):
+        ctx.preposition_set = set(DEFAULT_PREPOSITIONS)
     ctx.cmu = cmudict.dict()
     ctx.wn  = wn
     return ctx

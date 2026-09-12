@@ -83,6 +83,25 @@ _PRONOUN_POSSESSIVES = {
     'mine', 'yours', 'hers', 'ours', 'theirs',
 }
 
+# ---------------------------------------------------------------------------
+# حروف اضافه — منبع پیش‌فرض مرز NP (قابل گسترش از Excel: preposition)
+# ---------------------------------------------------------------------------
+DEFAULT_PREPOSITIONS = {
+    # مکان / جهت
+    'in', 'on', 'at', 'by', 'with', 'from', 'to', 'for', 'about',
+    'under', 'over', 'between', 'among', 'amongst', 'during', 'before',
+    'after', 'since', 'until', 'till', 'into', 'onto', 'upon',
+    'across', 'through', 'along', 'around', 'round', 'near', 'beside',
+    'besides', 'behind', 'beyond', 'inside', 'outside', 'above', 'below',
+    'beneath', 'within', 'without', 'against', 'toward', 'towards',
+    'via', 'per', 'plus', 'minus', 'unlike', 'like', 'except', 'despite',
+    'throughout', 'underneath', 'amid', 'amidst', 'atop',
+    # زمانی / سببی رایج
+    'of',  # of مرز NP در اسکن‌های lookback (جدا از قانون of quantifier)
+    'as',  # as در خیلی از lookbackها مرز مفید است
+    'up', 'down', 'off', 'out', 'past', 'next',
+}
+
 def is_punctuation(token):
     return token in PUNCTUATION
 
@@ -136,11 +155,20 @@ def possessive_before_index(sequence, idx, max_lookback=15) -> bool:
     return False
 
 
-def is_np_boundary(token):
+def is_np_boundary(token, preposition_set=None):
     """
-    مرز NP.
-    برای فعل: فقط اگر حس غالب WordNet (syns[0]) فعل باشد.
-    any(verb) قبلی NP را بیش از حد تکه می‌کرد (book/run/…).
+    مرز گروه اسمی (NP boundary).
+
+    موارد مرز:
+      - علائم نگارشی قوی
+      - حروف اضافه (DEFAULT_PREPOSITIONS یا preposition_set از Context/Excel)
+      - ربط‌دهنده‌ها (and/but/or/…)
+      - فعل فقط اگر حس غالب WordNet (syns[0]) فعل باشد
+
+    نکته درباره to:
+      - to تک‌توکن → مرز است (حرف‌اضافه / قبل از ادغام infinitive)
+      - بعد از InfinitiveToRule توکن "want to go" چندکلمه‌ای است و
+        دیگر با این تابع به‌عنوان حرف‌اضافهٔ تنها تشخیص داده نمی‌شود
     """
     if not token:
         return False
@@ -148,22 +176,25 @@ def is_np_boundary(token):
     if hasattr(token, "word"):
         t = str(token.word).lower()
 
+    # توکن چندکلمه‌ای ادغام‌شده مرز تک‌حرف‌اضافه نیست
+    if " " in t:
+        return False
+
     if t in {".", "!", "?", ";", ":", "—", ","}:
         return True
     if re.search(r'[.!?;:—]$', t):
         return True
-    preps = {'in', 'on', 'at', 'by', 'with', 'from', 'to', 'for', 'about',
-             'under', 'over', 'between', 'among', 'during', 'before',
-             'after', 'since', 'until', 'into', 'onto'}
+
+    preps = preposition_set if preposition_set is not None else DEFAULT_PREPOSITIONS
     if t in preps:
         return True
+
     if t in {'and', 'but', 'or', 'nor', 'yet', 'so'}:
         return True
     if t in {")", "]", "}", '"', "'"}:
         return True
     try:
         syns = wn.synsets(t)
-        # فقط حس غالب — مطابق نوت‌بوک اصلی
         if syns and syns[0].pos() == 'v':
             return True
     except LookupError:

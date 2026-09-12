@@ -42,7 +42,8 @@ _NP_SPECIAL_RULES = [
     ('src.rules.np.special.law_sh', 'LawShRule'),
     ('src.rules.np.special.law_z', 'LawZRule'),
     ('src.rules.np.special.the_ordinal', 'TheOrdinalRule'),
-    ('src.rules.np.special.spacy_pos_rule', 'SpacyPosRule'),  # POS بافت‌محور
+    ('src.rules.np.special.spacy_pos_rule', 'SpacyPosRule'),
+    ('src.rules.np.special.preposition_rule', 'PrepositionRule'),
     ('src.rules.np.special.wordnet_finalize', 'WordNetFinalizeRule'),
     ('src.rules.np.special.little_rule', 'LittleRule'),
     ('src.rules.np.special.final_fix', 'FinalFixAfterNounRule'),
