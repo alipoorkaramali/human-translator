@@ -84,8 +84,8 @@ _PRONOUN_POSSESSIVES = {
 }
 
 # ---------------------------------------------------------------------------
-# حروف اضافه — منبع پیش‌فرض مرز NP (قابل گسترش از Excel: preposition)
-# of و as عمداً مرز NP نیستند (قانون ض / of-quantifier).
+# حروف اضافه — منبع پیش‌فرض مرز NP (قابل گسترش از Excel / data/prepositions.txt)
+# of و as هرگز مرز NP نیستند (قانون ض / of-quantifier).
 # ---------------------------------------------------------------------------
 DEFAULT_PREPOSITIONS = {
     'in', 'on', 'at', 'by', 'with', 'from', 'to', 'for', 'about',
@@ -98,6 +98,9 @@ DEFAULT_PREPOSITIONS = {
     'throughout', 'underneath', 'amid', 'amidst', 'atop',
     'up', 'down', 'off', 'out', 'past', 'next',
 }
+
+# حتی اگر در Excel بیایند، مرز NP نمی‌شوند
+_NEVER_NP_BOUNDARY_PREPS = frozenset({'of', 'as'})
 
 def is_punctuation(token):
     return token in PUNCTUATION
@@ -156,13 +159,7 @@ def is_np_boundary(token, preposition_set=None):
     """
     مرز گروه اسمی (NP boundary).
 
-    موارد مرز:
-      - علائم نگارشی قوی
-      - حروف اضافه (DEFAULT_PREPOSITIONS یا preposition_set از Context/Excel)
-      - ربط‌دهنده‌ها (and/but/or/…)
-      - فعل فقط اگر حس غالب WordNet (syns[0]) فعل باشد
-
-    of و as عمداً در DEFAULT نیستند تا قانون ض و of-quantifier نشکنند.
+    of و as هرگز مرز نیستند (حتی اگر در preposition_set باشند).
     """
     if not token:
         return False
@@ -177,6 +174,9 @@ def is_np_boundary(token, preposition_set=None):
         return True
     if re.search(r'[.!?;:—]$', t):
         return True
+
+    if t in _NEVER_NP_BOUNDARY_PREPS:
+        return False
 
     preps = preposition_set if preposition_set is not None else DEFAULT_PREPOSITIONS
     if t in preps:
