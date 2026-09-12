@@ -1,14 +1,25 @@
 """
-قانون ض (Law Z) — نسخهٔ نهایی + اصلاح باگ possessive
+قانون ض (Law Z) — ادغام «صفت‌های مبهم + اسمِ جمعِ کمّی + of» در یک m1 چندکلمه‌ای.
 
-اگر در یک NP:
-  [modifiers بدون m1 واقعی] + plural_head + of
-و در کل NP ضمیر/نشانهٔ ملکی نباشد،
-آن محدوده ادغام می‌شود و برچسب m1 می‌گیرد.
+مثال‌ها:
+    large numbers of   → [large numbers of]=m1
+    huge amounts of    → [huge amounts of]=m1
+    various kinds of   → [various kinds of]=m1
 
-مثال مفهومی: various kinds of → یک توکن m1
+شرایط:
+  ۱. هسته یکی از plural_heads باشد و بلافاصله بعدش of بیاید.
+  ۲. حداقل یک modifier قبل از هسته باشد.
+  ۳. در کل NP جاری هیچ ملکی نباشد.
+  ۴. m1 واقعی (خارج vague) بین modifierها نباشد.
+  ۵. کلمهٔ بعد از of فعل (حس اول) نباشد.
+
+بهبودها:
+  • هستهٔ جمع هرگز مرز NP حساب نمی‌شود (amounts قطع نمی‌کند).
+  • تشخیص صفت: هر حس a/s، به‌شرطی که حس اول فعل نباشد.
+  • plural_heads از ctx.extra['law_z_plural_heads'] قابل توسعه.
+  • احترام به locked.
 """
-from typing import List, TYPE_CHECKING
+from typing import List, Set, TYPE_CHECKING
 
 from src.core.rule_base import Rule
 from src.ht_token import Token
@@ -17,7 +28,8 @@ from src.utils import is_np_boundary, is_possessive_or_s
 if TYPE_CHECKING:
     from src.core.context import Context
 
-_PLURAL_HEADS = {
+
+DEFAULT_PLURAL_HEADS: Set[str] = {
     "numbers", "amounts", "kinds", "types", "sorts", "groups", "varieties",
     "bunches", "piles", "bits", "sets", "lots", "ranges", "series", "volumes",
     "heaps", "loads", "tons", "dozens", "scores", "myriads", "multitudes",
@@ -29,87 +41,117 @@ class LawZRule(Rule):
     target_label = "special"
     priority = 81
 
-    def apply(self, tokens: List["Token"], ctx: "Context") -> bool:
+    @staticmethod
+    def _plural_heads(ctx: "Context") -> Set[str]:
+        heads = set(DEFAULT_PLURAL_HEADS)
+        extra = getattr(ctx, "extra", None) or {}
+        more = extra.get("law_z_plural_heads") if hasattr(extra, "get") else None
+        if more:
+            heads |= {str(h).lower().strip() for h in more}
+        return heads
+
+    @staticmethod
+    def _synsets(wn, word: str):
+        if wn is None:
+            return []
+        try:
+            return wn.synsets(word) or []
+        except Exception:
+            return []
+
+    @classmethod
+    def _is_adjective(cls, wn, word: str) -> bool:
+        syns = cls._synsets(wn, word)
+        if not syns:
+            return False
+        if syns[0].pos() == "v":
+            return False
+        return any(s.pos() in ("a", "s") for s in syns)
+
+    @classmethod
+    def _first_sense_is_verb(cls, wn, word: str) -> bool:
+        syns = cls._synsets(wn, word)
+        return bool(syns) and syns[0].pos() == "v"
+
+    @staticmethod
+    def _np_end(tokens: List[Token], start: int, heads: Set[str]) -> int:
+        j = start
+        n = len(tokens)
+        while j < n:
+            tok = tokens[j]
+            if tok.word.lower() not in heads and is_np_boundary(tok.word):
+                return j + 1
+            j += 1
+        return n
+
+    def apply(self, tokens: List[Token], ctx: "Context") -> bool:
         changed = False
-        vague = getattr(ctx, "vague_quant_set", set()) or set()
         wn = getattr(ctx, "wn", None)
+        vague: Set[str] = set(getattr(ctx, "vague_quant_set", set()) or set())
+        heads = self._plural_heads(ctx)
 
         i = 0
         while i < len(tokens) - 1:
             start = i
+            np_end = self._np_end(tokens, start, heads)
 
-            # مرحله ۱: مرز NP جاری
-            np_boundary = i
-            while np_boundary < len(tokens):
-                if is_np_boundary(tokens[np_boundary].word):
-                    np_boundary += 1
-                    break
-                np_boundary += 1
-
-            # مرحله ۲: اگر در این NP ملکی باشد → کل NP را رد کن
-            possessive_in_np = any(
-                is_possessive_or_s(tokens[j].word)
-                for j in range(i, np_boundary)
-            )
-            if possessive_in_np:
-                i = np_boundary
+            if any(
+                is_possessive_or_s(tokens[j].word) or tokens[j].label == "m3"
+                for j in range(start, np_end)
+            ):
+                i = max(np_end, start + 1)
                 continue
 
-            # مرحله ۳: رد شدن از modifierها تا head
-            modifier_end = i
+            modifier_end = start
             has_real_m1 = False
+            blocked = False
 
-            while modifier_end < len(tokens) - 1 and modifier_end < np_boundary:
+            while modifier_end < len(tokens) - 1 and modifier_end < np_end:
                 tok = tokens[modifier_end]
-                word_low = tok.word.lower()
+                if tok.locked:
+                    blocked = True
+                    break
+
+                low = tok.word.lower()
                 label = tok.label
 
-                if label == "m1":
-                    phrase = tok.word if " " in tok.word else word_low
-                    if phrase not in vague:
-                        has_real_m1 = True
+                if label == "m1" and low not in vague:
+                    has_real_m1 = True
 
-                if label in ("m2", "adv"):
+                if label in ("m2", "adv", "m1"):
                     modifier_end += 1
                     continue
-                if label == "" and wn is not None:
-                    try:
-                        syns = wn.synsets(word_low)
-                        if syns and syns[0].pos() in ("a", "s"):
-                            modifier_end += 1
-                            continue
-                    except Exception:
-                        pass
-                if word_low in vague:
+                if low in vague:
                     modifier_end += 1
                     continue
-                if label == "m1":
+                if label == "" and self._is_adjective(wn, low):
                     modifier_end += 1
                     continue
                 break
 
+            if blocked:
+                i = start + 1
+                continue
+
             head_idx = modifier_end
-            of_idx = modifier_end + 1
+            of_idx = head_idx + 1
 
             if (
                 head_idx >= len(tokens)
-                or tokens[head_idx].word.lower() not in _PLURAL_HEADS
                 or of_idx >= len(tokens)
+                or tokens[head_idx].locked
+                or tokens[of_idx].locked
+                or tokens[head_idx].word.lower() not in heads
                 or tokens[of_idx].word.lower() != "of"
             ):
                 i = start + 1
                 continue
 
-            # اگر بعد از of فعل باشد → رد
-            if of_idx + 1 < len(tokens) and wn is not None:
-                next_w = tokens[of_idx + 1].word.lower()
-                try:
-                    syns = wn.synsets(next_w)
-                    if syns and syns[0].pos() == "v":
-                        i = start + 1
-                        continue
-                except Exception:
-                    pass
+            if of_idx + 1 < len(tokens) and self._first_sense_is_verb(
+                wn, tokens[of_idx + 1].word.lower()
+            ):
+                i = start + 1
+                continue
 
             if modifier_end == start:
                 i = start + 1
@@ -119,15 +161,15 @@ class LawZRule(Rule):
                 i = of_idx + 1
                 continue
 
-            # ادغام start .. of_idx → یک توکن m1
-            combined_word = " ".join(t.word for t in tokens[start:of_idx + 1])
+            span = tokens[start:of_idx + 1]
+            first = span[0]
             combined = Token(
-                word=combined_word,
+                word=" ".join(t.word for t in span),
                 label="m1",
                 numtype="",
                 role="quantifier_phrase (multi-word)",
-                index=tokens[start].index,
-                original=combined_word,
+                index=first.index,
+                original=" ".join(t.original or t.word for t in span).strip(),
             )
             tokens[start:of_idx + 1] = [combined]
             changed = True
