@@ -54,7 +54,7 @@ class SomeNumberRule(Rule):
 
             nxt = tokens[i + 1]
             # آیا کلمهٔ بعدی عدد است؟
-            nt = nxt.numtype or number_type(nxt.word, cardinals, ordinals)
+            nt = nxt.subtype or number_type(nxt.word, cardinals, ordinals)
             if not nt:
                 continue
 
