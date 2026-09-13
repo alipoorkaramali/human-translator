@@ -11,7 +11,7 @@ import re
 
 from src.core.rule_base import Rule
 from src.ht_token import Token
-from src.utils import number_type, is_and_word
+from src.utils import number_type, is_and_word, numeric_subtype
 
 if TYPE_CHECKING:
     from src.core.context import Context
@@ -40,8 +40,12 @@ class CompoundNumberRule(Rule):
             if tok.locked:
                 i += 1
                 continue
+            if " " in tok.word:
+                i += 1
+                continue
 
-            nt = tok.subtype or number_type(tok.word, cardinals, ordinals)
+            # فقط cardinal/ordinal — نه possessive adj
+            nt = numeric_subtype(tok, cardinals, ordinals)
             if not nt:
                 i += 1
                 continue
@@ -52,7 +56,7 @@ class CompoundNumberRule(Rule):
                 nxt = tokens[j]
                 if nxt.locked:
                     break
-                next_subtype = nxt.subtype or number_type(nxt.word, cardinals, ordinals)
+                next_subtype = numeric_subtype(nxt, cardinals, ordinals)
                 if next_subtype:
                     seq_indices.append(j)
                     j += 1
@@ -60,7 +64,7 @@ class CompoundNumberRule(Rule):
 
                 if is_and_word(nxt.word) and j + 1 < len(tokens):
                     nn = tokens[j + 1]
-                    nn_subtype = nn.subtype or number_type(nn.word, cardinals, ordinals)
+                    nn_subtype = numeric_subtype(nn, cardinals, ordinals)
                     if nn_subtype and not nn.locked:
                         seq_indices.append(j)  # and
                         j += 1
@@ -70,11 +74,11 @@ class CompoundNumberRule(Rule):
             # فقط یک توکن → فقط برچسب/نوع را تنظیم کن
             if len(seq_indices) == 1:
                 final_subtype = self._final_subtype(tok.word, ordinals)
-                new_label = "m1" if final_subtype == "cardinal" else tok.label
-                # برای ordinal تک‌کلمه، label را خالی نکن اگر قبلاً m1 از tokenize آمده
-                # نوت‌بوک: ordinal → ''
-                if final_subtype == "ordinal":
-                    new_label = ""
+                # cardinal → m1؛ ordinal → label را دست نزن (the_ordinal تصمیم می‌گیرد)
+                if final_subtype == "cardinal":
+                    new_label = "m1"
+                else:
+                    new_label = tok.label  # حفظ m1 تا the_ordinal ببیند
                 if tok.label != new_label or tok.subtype != final_subtype:
                     tok.label = new_label
                     tok.subtype = final_subtype
