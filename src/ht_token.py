@@ -40,6 +40,10 @@ class Token:
         }
 
     def copy(self, **overrides) -> 'Token':
+        if 'numtype' in overrides and 'subtype' not in overrides:
+            overrides['subtype'] = overrides.pop('numtype')
+        else:
+            overrides.pop('numtype', None)
         return replace(self, **overrides)
 
     def is_empty(self) -> bool:
@@ -57,3 +61,16 @@ class Token:
             span = f' [{self.np_inner}|{self.np_of_np}]'
         st = f'/{self.subtype}' if self.subtype else ''
         return f"Token({self.index}: '{self.word}' → {self.label or '∅'}{st}{span} {lock})"
+
+
+# dataclass __init__ را طوری بپیچ که numtype= به‌عنوان subtype پذیرفته شود
+_token_init = Token.__init__
+
+
+def _token_init_compat(self, *args, numtype=None, **kwargs):
+    if numtype is not None and 'subtype' not in kwargs:
+        kwargs['subtype'] = numtype
+    return _token_init(self, *args, **kwargs)
+
+
+Token.__init__ = _token_init_compat  # type: ignore[method-assign]
