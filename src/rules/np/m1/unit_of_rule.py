@@ -72,7 +72,7 @@ class UnitOfRule(Rule):
             combined = Token(
                 word=combined_word,
                 label="m1",
-                numtype="",
+                subtype="",
                 role="quantifier_phrase (multi-word)",
                 index=tok.index,
                 original=combined_word,
