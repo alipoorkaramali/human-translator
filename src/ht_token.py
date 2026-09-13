@@ -5,7 +5,7 @@ from dataclasses import dataclass, replace
 class Token:
     word: str
     label: str = ''          # m1..m5, N, V, adv, ''
-    numtype: str = ''        # cardinal | ordinal | ''
+    subtype: str = ''        # cardinal | ordinal | possessive adj | ''
     role: str = 'unknown'    # نقش از WordNet/dict
     locked: bool = False     # اگر True باشد، قوانین بعدی دست نمیزنند
 
@@ -24,7 +24,7 @@ class Token:
         return {
             'کلمه': self.word,
             'برچسب': self.label,
-            'نوع_عدد': self.numtype,
+            'زیرنوع': self.subtype,
             'نقش_از_دیکشنری': self.role,
             'NP_داخلی': self.np_inner,
             'NP_of_NP': self.np_of_np,
@@ -38,7 +38,7 @@ class Token:
 
     def reset_label(self) -> None:
         self.label = ''
-        self.numtype = ''
+        self.subtype = ''
         self.role = 'unknown'
 
     def __repr__(self) -> str:

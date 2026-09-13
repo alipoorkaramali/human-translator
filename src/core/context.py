@@ -18,6 +18,7 @@ class Context:
     intensifier_set:  Set[str] = field(default_factory=set)
     vague_quant_set:  Set[str] = field(default_factory=set)
     preposition_set:  Set[str] = field(default_factory=set)
+    possessive_set:   Set[str] = field(default_factory=set)
 
     # دیکشنری‌های بارگذاری‌شده
     cmu: Dict[str, Any] = field(default_factory=dict)
@@ -40,7 +41,7 @@ class Context:
             'phrases_set', 'cardinal_numbers', 'ordinal_numbers',
             'article_set', 'demotrative_set', 'simple_set',
             'compound_set', 'intensifier_set', 'vague_quant_set',
-            'preposition_set',
+            'preposition_set', 'possessive_set',
         ]
 
     def update_from_tuple(self, tup: tuple):

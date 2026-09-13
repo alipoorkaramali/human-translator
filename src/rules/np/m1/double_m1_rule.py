@@ -20,6 +20,12 @@ class DoubleM1Rule(Rule):
             if a.locked or b.locked:
                 continue
             if a.label == "m1" and b.label == "m1":
+                # ملکی + m1 دیگر: قفل دوگانهٔ quantifier اعمال نشود
+                if (
+                    getattr(a, "subtype", "") == "possessive adj"
+                    or getattr(b, "subtype", "") == "possessive adj"
+                ):
+                    continue
                 if not a.locked:
                     a.locked = True
                     changed = True

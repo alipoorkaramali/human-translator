@@ -40,8 +40,11 @@ class Pipeline:
 
             if nt:
                 tokens.append(Token(w, 'm1', nt, index=i))
-            elif is_possessive_pronoun(w):
-                tokens.append(Token(w, 'm3', '', index=i))
+            elif wl in getattr(self.ctx, 'possessive_set', set()) or is_possessive_pronoun(w):
+                tokens.append(Token(
+                    w, 'm1', 'possessive adj',
+                    role='determiner/possessive', index=i,
+                ))
             elif wl in self.ctx.intensifier_set:
                 tokens.append(Token(w, 'adv', '', index=i))
             elif wl in self.ctx.article_set or wl in getattr(

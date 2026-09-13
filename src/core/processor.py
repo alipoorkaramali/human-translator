@@ -25,13 +25,13 @@ class Processor:
     def load(self,
              words: List[str],
              labels: Optional[List[str]] = None,
-             numtypes: Optional[List[str]] = None) -> None:
+             subtypes: Optional[List[str]] = None) -> None:
         labels = labels or [''] * len(words)
-        numtypes = numtypes or [''] * len(words)
+        subtypes = subtypes or [''] * len(words)
         self.tokens = []
-        for i, (w, lbl, nt) in enumerate(zip(words, labels, numtypes)):
+        for i, (w, lbl, nt) in enumerate(zip(words, labels, subtypes)):
             self.tokens.append(Token(word=w, label=lbl,
-                                     numtype=nt, index=i))
+                                     subtype=nt, index=i))
 
     def run_phase(self, phase: str, max_iter: int = 8) -> bool:
         rules = self.registry.by_label(phase)
@@ -77,5 +77,5 @@ class Processor:
     def labels(self) -> List[str]:
         return [t.label for t in self.tokens]
 
-    def numtypes(self) -> List[str]:
-        return [t.numtype for t in self.tokens]
+    def subtypes(self) -> List[str]:
+        return [t.subtype for t in self.tokens]
