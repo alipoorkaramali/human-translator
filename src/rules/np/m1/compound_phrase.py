@@ -87,6 +87,17 @@ class CompoundPhraseRule(Rule):
                 if phrase not in phrase_bank:
                     continue
 
+                # اگر «lot of» مچ شد ولی قبلش a/an است و «a lot of» در بانک است → گسترش به چپ
+                if i > 0 and not tokens[i - 1].locked:
+                    prev_w = tokens[i - 1].word.lower()
+                    if prev_w in {"a", "an"}:
+                        extended = f"{prev_w} {phrase}"
+                        if extended in phrase_bank:
+                            phrase_tokens = tokens[i - 1:i + length]
+                            phrase = extended
+                            length = length + 1
+                            i = i - 1
+
                 # ادغام
                 if length == 1:
                     if phrase_tokens[0].label != "m1":

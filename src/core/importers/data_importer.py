@@ -13,6 +13,13 @@ DEFAULT_POSSESSIVES = {
     'my', 'your', 'his', 'her', 'its', 'our', 'their',
 }
 
+# عبارات مرکب پرکاربرد که اگر در Excel نباشند هم باید کار کنند
+DEFAULT_COMPOUNDS = {
+    'a lot of', 'lots of', 'lot of',
+    'a number of', 'a couple of', 'a bit of', 'a little',
+    'a few', 'a great deal of', 'a good deal of',
+}
+
 
 def load_nltk_data(nltk_data_path: str = None):
     if nltk_data_path is None:
@@ -40,7 +47,7 @@ def load_excel(excel_file: str = 'Book1.xlsx') -> dict:
     article_set     = col('article')
     demotrative_set = col('demotrative')
     simple_set      = col('simple')
-    compound_set    = col('compound')
+    compound_set    = col('compound') | set(DEFAULT_COMPOUNDS)
     cardinal_set    = col('cardinal')
     ordinal_set     = col('ordinal')
     intensifier_set = col('adverbs of intensifiers')
