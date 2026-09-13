@@ -18,7 +18,7 @@ _DEFAULT = {"my", "your", "his", "her", "its", "our", "their"}
 class PossessiveAdjRule(Rule):
     name = "possessive_adj"
     target_label = "m1"
-    priority = 5  # زود، قبل از quantifierهای دیگر
+    priority = 7  # بعد از compound_number تا subtype را برگرداند
 
     def apply(self, tokens: List["Token"], ctx: "Context") -> bool:
         poss = set(getattr(ctx, "possessive_set", None) or set()) or set(_DEFAULT)

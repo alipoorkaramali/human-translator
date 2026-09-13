@@ -25,6 +25,20 @@ class TheOrdinalRule(Rule):
         cardinals = getattr(ctx, "cardinal_numbers", set()) or set()
         ordinals = getattr(ctx, "ordinal_numbers", set()) or set()
 
+        # دفاعی: اگر قبلاً «the ORDINAL» ادغام شده ولی label خراب شده
+        for tok in tokens:
+            if tok.locked:
+                continue
+            w = tok.word.lower()
+            if w.startswith("the ") and (
+                tok.subtype == "ordinal"
+                or number_type(tok.word.split()[-1], cardinals, ordinals) == "ordinal"
+            ):
+                if tok.label != "m1":
+                    tok.label = "m1"
+                    tok.role = "determiner/quantifier"
+                    changed = True
+
         i = 0
         while i < len(tokens):
             if i >= len(tokens) - 1:
@@ -38,13 +52,8 @@ class TheOrdinalRule(Rule):
                 i += 1
                 continue
 
-            # اگر قبلاً m4 یا adv شده → دست نزن
-            if nxt.label in ("m4", "adv"):
-                i += 1
-                continue
-
             cur = tokens[i]
-            # the + ordinal → همیشه m1 (حتی اگر DoubleM1 قبلاً قفل کرده باشد)
+            # the + ordinal → همیشه ادغام (حتی اگر first قبلاً adv/m4 شده باشد)
             if cur.word.lower() == "the" and cur.label in ("", "m1"):
                 combined = Token(
                     word=f"the {nxt.word}",
@@ -57,7 +66,6 @@ class TheOrdinalRule(Rule):
                 )
                 tokens[i:i + 2] = [combined]
                 changed = True
-                # i ثابت می‌ماند تا توکن بعدی بعد از ترکیب بررسی شود
             else:
                 # همهٔ حالت‌های دیگر → ordinal = adv
                 if not nxt.locked and nxt.label != "adv":
