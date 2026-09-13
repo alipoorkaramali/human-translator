@@ -41,7 +41,7 @@ class SimpleOfRule(Rule):
                 continue
 
             wl = tok.word.lower()
-            nt = tok.numtype or number_type(tok.word, cardinals, ordinals) or ""
+            nt = tok.subtype or number_type(tok.word, cardinals, ordinals) or ""
 
             is_quant = wl in simple or nt == "cardinal"
             if not is_quant or tokens[i + 1].word.lower() != "of":
@@ -55,7 +55,7 @@ class SimpleOfRule(Rule):
                 prev_w = prev.word.lower()
                 if is_np_boundary(prev.word) or prev_w in {",", "and", "but", "or"}:
                     break
-                prev_nt = prev.numtype or number_type(prev.word, cardinals, ordinals)
+                prev_nt = prev.subtype or number_type(prev.word, cardinals, ordinals)
                 if (
                     prev_w in simple
                     or prev_w in _EXTRA_QUANTS
@@ -82,7 +82,7 @@ class SimpleOfRule(Rule):
             combined = Token(
                 word=combined_word,
                 label="m1",
-                numtype=nt,
+                subtype=nt,
                 role="quantifier_phrase (multi-word)",
                 index=tok.index,
                 original=combined_word,
