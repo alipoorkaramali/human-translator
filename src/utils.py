@@ -228,6 +228,19 @@ def number_type(word, cardinal_numbers, ordinal_numbers):
     return None
 
 
+def numeric_subtype(tok_or_word, cardinal_numbers, ordinal_numbers, subtype=None):
+    """فقط cardinal/ordinal را عدد حساب کن — نه possessive adj و بقیه."""
+    if subtype is None and hasattr(tok_or_word, 'subtype'):
+        subtype = getattr(tok_or_word, 'subtype', '') or ''
+        word = tok_or_word.word
+    else:
+        word = tok_or_word if isinstance(tok_or_word, str) else getattr(tok_or_word, 'word', '')
+        subtype = subtype or ''
+    if subtype in ('cardinal', 'ordinal'):
+        return subtype
+    return number_type(word, cardinal_numbers, ordinal_numbers)
+
+
 _CMU_CACHE = None
 
 def _get_cmu():
