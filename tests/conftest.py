@@ -28,8 +28,8 @@ def _ensure_nltk_path():
 
 @pytest.fixture
 def make_token():
-    def _make(word, label='', numtype='', role='unknown', locked=False, index=-1):
-        return Token(word=word, label=label, numtype=numtype, role=role,
+    def _make(word, label='', subtype='', role='unknown', locked=False, index=-1):
+        return Token(word=word, label=label, subtype=subtype, role=role,
                      locked=locked, index=index)
     return _make
 

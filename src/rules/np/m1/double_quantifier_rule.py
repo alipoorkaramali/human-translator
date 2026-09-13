@@ -32,12 +32,12 @@ class DoubleQuantifierRule(Rule):
             prev_q = (
                 prev_w in simple
                 or prev_w in compound
-                or prev.numtype in ("cardinal", "ordinal")
+                or prev.subtype in ("cardinal", "ordinal")
             )
             cur_q = (
                 cur_w in simple
                 or cur_w in compound
-                or cur.numtype in ("cardinal", "ordinal")
+                or cur.subtype in ("cardinal", "ordinal")
             )
             if prev_q and cur_q and prev_w != "some":
                 new_label = "" if cur_w in compound else "adv"

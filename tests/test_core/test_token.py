@@ -14,7 +14,7 @@ def test_token_to_dict():
     d = t.to_dict()
     assert d['کلمه'] == 'five'
     assert d['برچسب'] == 'm1'
-    assert d['نوع_عدد'] == 'cardinal'
+    assert d['زیرنوع'] == 'cardinal'
     assert d['نقش_از_دیکشنری'] == 'number'
 
 
@@ -36,5 +36,5 @@ def test_token_reset_label():
     t = Token('x', 'm1', 'cardinal', role='num')
     t.reset_label()
     assert t.label == ''
-    assert t.numtype == ''
+    assert t.subtype == ''
     assert t.role == 'unknown'

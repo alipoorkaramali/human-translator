@@ -20,7 +20,7 @@ class M1AfterNounRule(Rule):
             if tok.locked:
                 continue
             prev = tokens[i - 1]
-            is_num = tok.numtype in ("cardinal", "ordinal") or tok.word.isdigit()
+            is_num = tok.subtype in ("cardinal", "ordinal") or tok.word.isdigit()
             if not is_num:
                 continue
             if prev.label in ("", "N") and prev.word.isalpha():

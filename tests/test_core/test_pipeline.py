@@ -24,7 +24,7 @@ class TestPipeline:
         pipe = Pipeline(excel_file=BOOK)
         df = pipe.run("some books are here")
         assert len(df) > 0
-        assert set(df.columns) >= {'کلمه', 'برچسب', 'نوع_عدد', 'نقش_از_دیکشنری'}
+        assert set(df.columns) >= {'کلمه', 'برچسب', 'زیرنوع', 'نقش_از_دیکشنری'}
 
     def test_run_with_number(self):
         pipe = Pipeline(excel_file=BOOK)
@@ -32,4 +32,4 @@ class TestPipeline:
         # 'five' باید cardinal باشد
         five_row = df[df['کلمه'].str.lower() == 'five']
         assert len(five_row) == 1
-        assert five_row.iloc[0]['نوع_عدد'] == 'cardinal'
+        assert five_row.iloc[0]['زیرنوع'] == 'cardinal'
