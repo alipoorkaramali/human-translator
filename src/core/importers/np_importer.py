@@ -1,4 +1,4 @@
-"""واردکنندهٔ قوانین NP: m1..m5 + special"""
+"""واردکنندهٔ قوانین NP: m1..m5 + special + np_span"""
 import importlib
 from ..rule_base import RuleRegistry
 
@@ -50,6 +50,10 @@ _NP_SPECIAL_RULES = [
     ('src.rules.np.special.more_after_m1_final_rule', 'MoreAfterM1FinalRule'),
 ]
 
+_NP_SPAN_RULES = [
+    ('src.rules.np.special.np_of_np_span_rule', 'NpOfNpSpanRule'),
+]
+
 
 def _register(registry: RuleRegistry, specs) -> int:
     count = 0
@@ -82,8 +86,14 @@ def import_np_special_rules(registry: RuleRegistry) -> RuleRegistry:
     return registry
 
 
+def import_np_span_rules(registry: RuleRegistry) -> RuleRegistry:
+    _register(registry, _NP_SPAN_RULES)
+    return registry
+
+
 def import_np_rules(registry: RuleRegistry) -> RuleRegistry:
     import_m1_rules(registry)
     import_m2_to_m5(registry)
     import_np_special_rules(registry)
+    import_np_span_rules(registry)
     return registry

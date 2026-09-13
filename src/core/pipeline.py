@@ -1,5 +1,4 @@
 import pandas as pd
-import re
 
 from .processor import Processor
 from .rule_base import RuleRegistry
@@ -18,6 +17,7 @@ class Pipeline:
     PHASES = [
         'm1', 'm2', 'm3', 'm4', 'm5', 'special',
         'vp1', 'vp2', 'vp3', 'vp_special',
+        'np_span',
     ]
 
     def __init__(self, excel_file: str = 'Book1.xlsx',
@@ -41,11 +41,12 @@ class Pipeline:
             if nt:
                 tokens.append(Token(w, 'm1', nt, index=i))
             elif is_possessive_pronoun(w):
-                # فقط ضمیر ملکی → m3 ؛ students'/children's برای PossessiveRule می‌مانند
                 tokens.append(Token(w, 'm3', '', index=i))
             elif wl in self.ctx.intensifier_set:
                 tokens.append(Token(w, 'adv', '', index=i))
-            elif wl in self.ctx.article_set or wl in getattr(self.ctx, 'demotrative_set', set()):
+            elif wl in self.ctx.article_set or wl in getattr(
+                self.ctx, 'demotrative_set', set()
+            ):
                 tokens.append(Token(w, 'm1', '', index=i))
             elif wl in self.ctx.phrases_set:
                 tokens.append(Token(w, 'm1', '', index=i))

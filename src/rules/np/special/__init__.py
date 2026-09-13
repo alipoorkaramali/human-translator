@@ -13,6 +13,7 @@ from .final_fix import FinalFixAfterNounRule
 from .wordnet_finalize import WordNetFinalizeRule
 from .little_rule import LittleRule
 from .more_after_m1_final_rule import MoreAfterM1FinalRule
+from .np_of_np_span_rule import NpOfNpSpanRule
 
 __all__ = [
     'CompoundResplitRule',
@@ -29,4 +30,5 @@ __all__ = [
     'WordNetFinalizeRule',
     'LittleRule',
     'MoreAfterM1FinalRule',
+    'NpOfNpSpanRule',
 ]
