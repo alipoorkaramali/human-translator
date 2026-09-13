@@ -56,22 +56,36 @@ class SimpleOfRule(Rule):
                 if is_np_boundary(prev.word) or prev_w in {",", "and", "but", "or"}:
                     break
                 prev_nt = numeric_subtype(prev, cardinals, ordinals)
-                if prev_w in simple or prev_w in _EXTRA_QUANTS or prev_nt:
+                if (
+                    prev_w in simple
+                    or prev_w in _EXTRA_QUANTS
+                    or prev_nt
+                ):
                     has_previous_quantifier = True
                     break
 
             if has_previous_quantifier:
-                i += 1
+                # دو کمیت‌نما پشت‌سرهم → دومی m1 نمی‌گیرد؛ of را جدا می‌گذاریم
+                if tok.label == "m1":
+                    tok.label = ""
+                    changed = True
+                i += 2
                 continue
 
-            # ادغام X of
+            # امن → ترکیب "X of"
+            combined_word = f"{tok.word} of"
+            of_tok = tokens[i + 1]
+            if of_tok.locked:
+                i += 2
+                continue
+
             combined = Token(
-                word=f"{tok.word} of",
+                word=combined_word,
                 label="m1",
                 subtype=nt,
-                role="quantifier_phrase",
+                role="quantifier_phrase (multi-word)",
                 index=tok.index,
-                original=f"{tok.original} of".strip(),
+                original=combined_word,
             )
             tokens[i:i + 2] = [combined]
             changed = True
