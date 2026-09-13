@@ -76,7 +76,7 @@ class CompoundPhraseRule(Rule):
                     prev_w = prev.word.lower()
                     if is_np_boundary(prev.word) or prev_w in {",", "and", "but", "or"}:
                         break
-                    prev_nt = prev.numtype or number_type(prev.word, cardinals, ordinals)
+                    prev_nt = prev.subtype or number_type(prev.word, cardinals, ordinals)
                     if prev_w in simple or prev_w in _EXTRA_QUANTS or prev_nt:
                         has_previous_quantifier = True
                         break
@@ -100,7 +100,7 @@ class CompoundPhraseRule(Rule):
                 combined = Token(
                     word=" ".join(t.word for t in phrase_tokens),
                     label="m1",
-                    numtype="",
+                    subtype="",
                     role="quantifier_phrase (multi-word)",
                     index=phrase_tokens[0].index,
                     original=" ".join(t.word for t in phrase_tokens),

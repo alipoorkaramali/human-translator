@@ -31,7 +31,7 @@ class TheOrdinalRule(Rule):
                 break
 
             nxt = tokens[i + 1]
-            is_ord = nxt.numtype == "ordinal" or (
+            is_ord = nxt.subtype == "ordinal" or (
                 number_type(nxt.word, cardinals, ordinals) == "ordinal"
             )
             if not is_ord:
@@ -49,7 +49,7 @@ class TheOrdinalRule(Rule):
                 combined = Token(
                     word=f"the {nxt.word}",
                     label="m1",
-                    numtype="ordinal",
+                    subtype="ordinal",
                     role="determiner/quantifier",
                     index=cur.index,
                     original=f"{cur.original} {nxt.original}".strip(),

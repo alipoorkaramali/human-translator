@@ -39,7 +39,7 @@ class CompoundResplitRule(Rule):
                         lbl = ""
                     nt = number_type(p, cardinals, ordinals) or ""
                     new_tokens.append(
-                        Token(word=p, label=lbl, numtype=nt, index=tok.index)
+                        Token(word=p, label=lbl, subtype=nt, index=tok.index)
                     )
                 tokens[i:i + 1] = new_tokens
                 changed = True
