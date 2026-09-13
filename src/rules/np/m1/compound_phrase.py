@@ -11,7 +11,7 @@ from typing import List, TYPE_CHECKING
 
 from src.core.rule_base import Rule
 from src.ht_token import Token
-from src.utils import is_np_boundary, is_possessive_or_s, number_type
+from src.utils import is_np_boundary, is_possessive_or_s, number_type, numeric_subtype
 
 if TYPE_CHECKING:
     from src.core.context import Context
@@ -76,7 +76,7 @@ class CompoundPhraseRule(Rule):
                     prev_w = prev.word.lower()
                     if is_np_boundary(prev.word) or prev_w in {",", "and", "but", "or"}:
                         break
-                    prev_nt = prev.subtype or number_type(prev.word, cardinals, ordinals)
+                    prev_nt = numeric_subtype(prev, cardinals, ordinals)
                     if prev_w in simple or prev_w in _EXTRA_QUANTS or prev_nt:
                         has_previous_quantifier = True
                         break

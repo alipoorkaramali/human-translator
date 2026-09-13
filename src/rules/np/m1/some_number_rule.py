@@ -1,17 +1,10 @@
 """
-قانون قطعی: some + عدد → adv
-
-فقط وقتی some به‌تنهایی قبل از عدد باشد.
-استثنا (m1 می‌ماند / دست‌نخورده):
-  some hundred(s), some thousand(s), some dozen(s), some score
-  و هر compound که با 'some ' شروع شود و در compound_set باشد.
-
-باید زود اجرا شود (priority پایین).
+some + عدد → some = adv (مگر compound quantifier)
 """
 from typing import List, TYPE_CHECKING
 
 from src.core.rule_base import Rule
-from src.utils import number_type
+from src.utils import number_type, numeric_subtype
 
 if TYPE_CHECKING:
     from src.ht_token import Token
@@ -54,7 +47,7 @@ class SomeNumberRule(Rule):
 
             nxt = tokens[i + 1]
             # آیا کلمهٔ بعدی عدد است؟
-            nt = nxt.subtype or number_type(nxt.word, cardinals, ordinals)
+            nt = numeric_subtype(nxt, cardinals, ordinals)
             if not nt:
                 continue
 
