@@ -6,7 +6,7 @@
   3/4, one third, one and a half, two and three quarters, ...
 
 نتیجه: توکن ادغام‌شده با label=m1
-numtype از روی آخرین بخش:
+subtype از روی آخرین بخش:
   one-third / 1/3 → cardinal
   twenty-third / 23rd → ordinal
 """
@@ -91,7 +91,7 @@ def _merge_at(words: List[str], i: int) -> Tuple[Optional[str], int, bool]:
     return None, i, False
 
 
-def _fraction_numtype(merged: str, ordinal_numbers: set) -> str:
+def _fraction_subtype(merged: str, ordinal_numbers: set) -> str:
     """
     تشخیص نوع کسر از روی آخرین کلمه.
     one-third → cardinal | twenty-third → ordinal
@@ -143,13 +143,13 @@ class FractionRule(Rule):
                 i += 1
                 continue
 
-            frac_type = _fraction_numtype(merged, ordinals)
+            frac_type = _fraction_subtype(merged, ordinals)
 
             if next_i == i + 1:
                 tok = tokens[i]
-                if tok.label != "m1" or tok.numtype != frac_type:
+                if tok.label != "m1" or tok.subtype != frac_type:
                     tok.label = "m1"
-                    tok.numtype = frac_type
+                    tok.subtype = frac_type
                     tok.role = "fraction"
                     changed = True
                 i = next_i
@@ -158,7 +158,7 @@ class FractionRule(Rule):
             combined = Token(
                 word=merged,
                 label="m1",
-                numtype=frac_type,
+                subtype=frac_type,
                 role="fraction",
                 index=tokens[i].index,
                 original=merged,
