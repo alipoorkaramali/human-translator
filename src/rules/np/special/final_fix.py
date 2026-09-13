@@ -37,7 +37,7 @@ class FinalFixAfterNounRule(Rule):
             if low in _ALWAYS_M1:
                 continue
 
-            is_number = tok.numtype in ("cardinal", "ordinal") or (
+            is_number = tok.subtype in ("cardinal", "ordinal") or (
                 number_type(tok.word, cardinals, ordinals) is not None
             )
 
