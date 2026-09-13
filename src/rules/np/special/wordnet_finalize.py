@@ -56,7 +56,7 @@ class WordNetFinalizeRule(Rule):
                 changed = True
 
             # ordinal را TheOrdinalRule مدیریت می‌کند
-            if tok.numtype == "ordinal":
+            if tok.subtype == "ordinal":
                 continue
 
         # intensifierها
