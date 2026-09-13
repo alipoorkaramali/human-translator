@@ -41,7 +41,7 @@ class CompoundNumberRule(Rule):
                 i += 1
                 continue
 
-            nt = tok.numtype or number_type(tok.word, cardinals, ordinals)
+            nt = tok.subtype or number_type(tok.word, cardinals, ordinals)
             if not nt:
                 i += 1
                 continue
@@ -52,16 +52,16 @@ class CompoundNumberRule(Rule):
                 nxt = tokens[j]
                 if nxt.locked:
                     break
-                next_type = nxt.numtype or number_type(nxt.word, cardinals, ordinals)
-                if next_type:
+                next_subtype = nxt.subtype or number_type(nxt.word, cardinals, ordinals)
+                if next_subtype:
                     seq_indices.append(j)
                     j += 1
                     continue
 
                 if is_and_word(nxt.word) and j + 1 < len(tokens):
                     nn = tokens[j + 1]
-                    nn_type = nn.numtype or number_type(nn.word, cardinals, ordinals)
-                    if nn_type and not nn.locked:
+                    nn_subtype = nn.subtype or number_type(nn.word, cardinals, ordinals)
+                    if nn_subtype and not nn.locked:
                         seq_indices.append(j)  # and
                         j += 1
                         continue
@@ -69,15 +69,15 @@ class CompoundNumberRule(Rule):
 
             # فقط یک توکن → فقط برچسب/نوع را تنظیم کن
             if len(seq_indices) == 1:
-                final_type = self._final_type(tok.word, ordinals)
-                new_label = "m1" if final_type == "cardinal" else tok.label
+                final_subtype = self._final_subtype(tok.word, ordinals)
+                new_label = "m1" if final_subtype == "cardinal" else tok.label
                 # برای ordinal تک‌کلمه، label را خالی نکن اگر قبلاً m1 از tokenize آمده
                 # نوت‌بوک: ordinal → ''
-                if final_type == "ordinal":
+                if final_subtype == "ordinal":
                     new_label = ""
-                if tok.label != new_label or tok.numtype != final_type:
+                if tok.label != new_label or tok.subtype != final_subtype:
                     tok.label = new_label
-                    tok.numtype = final_type
+                    tok.subtype = final_subtype
                     changed = True
                 i = j
                 continue
@@ -90,13 +90,13 @@ class CompoundNumberRule(Rule):
             start, end = seq_indices[0], seq_indices[-1] + 1
             seq_words = [tokens[k].word for k in range(start, end)]
             combined_word = " ".join(seq_words)
-            final_type = self._final_type(seq_words[-1], ordinals)
-            new_label = "m1" if final_type == "cardinal" else ""
+            final_subtype = self._final_subtype(seq_words[-1], ordinals)
+            new_label = "m1" if final_subtype == "cardinal" else ""
 
             combined = Token(
                 word=combined_word,
                 label=new_label,
-                numtype=final_type,
+                subtype=final_subtype,
                 role="number",
                 index=tokens[start].index,
                 original=combined_word,
@@ -108,7 +108,7 @@ class CompoundNumberRule(Rule):
         return changed
 
     @staticmethod
-    def _final_type(last_word: str, ordinal_numbers: set) -> str:
+    def _final_subtype(last_word: str, ordinal_numbers: set) -> str:
         last_clean = re.sub(r"[.,]", "", last_word.lower())
         if (
             last_clean in ordinal_numbers
