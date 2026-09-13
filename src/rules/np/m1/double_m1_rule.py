@@ -1,4 +1,9 @@
-"""قانون: دو توکن متوالی m1 را قفل می‌کند."""
+"""قانون: دو توکن متوالی m1 را قفل می‌کند.
+
+استثناها (قفل نمی‌شوند):
+  • هر طرف subtype=possessive adj
+  • the/a/an + ordinal  (باید توسط TheOrdinalRule ادغام شوند)
+"""
 from typing import List, TYPE_CHECKING
 
 from src.core.rule_base import Rule
@@ -6,6 +11,8 @@ from src.core.rule_base import Rule
 if TYPE_CHECKING:
     from src.ht_token import Token
     from src.core.context import Context
+
+_ARTICLES = {"a", "an", "the"}
 
 
 class DoubleM1Rule(Rule):
@@ -24,6 +31,12 @@ class DoubleM1Rule(Rule):
                 if (
                     getattr(a, "subtype", "") == "possessive adj"
                     or getattr(b, "subtype", "") == "possessive adj"
+                ):
+                    continue
+                # the/a/an + ordinal → TheOrdinalRule باید ادغام کند
+                if (
+                    a.word.lower() in _ARTICLES
+                    and getattr(b, "subtype", "") == "ordinal"
                 ):
                     continue
                 if not a.locked:

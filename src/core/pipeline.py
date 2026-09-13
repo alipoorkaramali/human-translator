@@ -33,18 +33,23 @@ class Pipeline:
         words = tokenize_english(text)
 
         tokens = []
+        poss_set = getattr(self.ctx, 'possessive_set', set()) or set()
         for i, w in enumerate(words):
             wl = w.lower()
+
+            # ملکی قبل از number_type — تا my هرگز cardinal نشود
+            if wl in poss_set or is_possessive_pronoun(w):
+                tokens.append(Token(
+                    w, 'm1', 'possessive adj',
+                    role='determiner/possessive', index=i,
+                ))
+                continue
+
             nt = number_type(w, self.ctx.cardinal_numbers,
                              self.ctx.ordinal_numbers) or ''
 
             if nt:
                 tokens.append(Token(w, 'm1', nt, index=i))
-            elif wl in getattr(self.ctx, 'possessive_set', set()) or is_possessive_pronoun(w):
-                tokens.append(Token(
-                    w, 'm1', 'possessive adj',
-                    role='determiner/possessive', index=i,
-                ))
             elif wl in self.ctx.intensifier_set:
                 tokens.append(Token(w, 'adv', '', index=i))
             elif wl in self.ctx.article_set or wl in getattr(

@@ -44,8 +44,8 @@ class TheOrdinalRule(Rule):
                 continue
 
             cur = tokens[i]
-            if cur.word.lower() == "the" and cur.label in ("", "m1") and not cur.locked:
-                # ترکیب the + ordinal → یک توکن m1
+            # the + ordinal → همیشه m1 (حتی اگر DoubleM1 قبلاً قفل کرده باشد)
+            if cur.word.lower() == "the" and cur.label in ("", "m1"):
                 combined = Token(
                     word=f"the {nxt.word}",
                     label="m1",
@@ -53,6 +53,7 @@ class TheOrdinalRule(Rule):
                     role="determiner/quantifier",
                     index=cur.index,
                     original=f"{cur.original} {nxt.original}".strip(),
+                    locked=False,
                 )
                 tokens[i:i + 2] = [combined]
                 changed = True
