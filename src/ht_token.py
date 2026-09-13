@@ -20,6 +20,15 @@ class Token:
         if not self.original:
             self.original = self.word
 
+    # سازگاری موقت با کد قدیمی که هنوز numtype می‌نویسد/می‌خواند
+    @property
+    def numtype(self) -> str:
+        return self.subtype
+
+    @numtype.setter
+    def numtype(self, value: str) -> None:
+        object.__setattr__(self, 'subtype', value or '')
+
     def to_dict(self) -> dict:
         return {
             'کلمه': self.word,
@@ -46,4 +55,5 @@ class Token:
         span = ''
         if self.np_of_np or self.np_inner:
             span = f' [{self.np_inner}|{self.np_of_np}]'
-        return f"Token({self.index}: '{self.word}' → {self.label or '∅'}{span} {lock})"
+        st = f'/{self.subtype}' if self.subtype else ''
+        return f"Token({self.index}: '{self.word}' → {self.label or '∅'}{st}{span} {lock})"
