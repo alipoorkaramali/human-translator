@@ -36,6 +36,9 @@ class FinalFixAfterNounRule(Rule):
             low = tok.word.lower()
             if low in _ALWAYS_M1:
                 continue
+            # the + ordinal ادغام‌شده را دست نزن
+            if low.startswith("the ") and tok.subtype == "ordinal":
+                continue
 
             is_number = tok.subtype in ("cardinal", "ordinal") or (
                 number_type(tok.word, cardinals, ordinals) is not None
