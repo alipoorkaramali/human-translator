@@ -120,7 +120,7 @@ def _merge(tokens: List["Token"], start: int, end: int, role: str) -> None:
     tokens[start:end] = [Token(
         word=combined_word,
         label="V",
-        numtype="",
+        subtype="",
         role=role,
         index=tokens[start].index,
         original=combined_word,
