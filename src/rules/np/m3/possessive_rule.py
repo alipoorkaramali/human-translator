@@ -9,7 +9,8 @@
   وگرنه اگر m1 نبود → N
   (m1 دست‌نخورده می‌ماند)
 
-ضمیرهای ملکی (my/his/…) از tokenize اولیه m3 می‌گیرند و اینجا تغییر نمی‌کنند.
+ضمیرهای ملکی (my/his/…) از tokenize اولیه label=m1 و subtype=possessive adj می‌گیرند و اینجا تغییر نمی‌کنند.
+این قانون فقط genitive روی اسم ('s / s') را مدیریت می‌کند.
 """
 from typing import List, TYPE_CHECKING
 import re

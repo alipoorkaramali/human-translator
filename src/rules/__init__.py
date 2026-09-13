@@ -11,7 +11,7 @@ from src.core.rule_base import RuleRegistry
 from src.core.processor import Processor
 
 
-def apply_all_rules(out_words, out_labels, out_numtype, ctx):
+def apply_all_rules(out_words, out_labels, out_subtype, ctx):
     """
     Backward-compatible wrapper.
     ورودی: سه لیست موازی + dict/Context
@@ -32,7 +32,7 @@ def apply_all_rules(out_words, out_labels, out_numtype, ctx):
     import_vp_rules(registry)
 
     proc = Processor(context, registry)
-    proc.load(out_words, out_labels, out_numtype)
+    proc.load(out_words, out_labels, out_subtype)
     proc.run_all()
 
-    return proc.words(), proc.labels(), proc.numtypes()
+    return proc.words(), proc.labels(), proc.subtypes()

@@ -96,7 +96,9 @@ class LawZRule(Rule):
             np_end = self._np_end(tokens, start, heads)
 
             if any(
-                is_possessive_or_s(tokens[j].word) or tokens[j].label == "m3"
+                is_possessive_or_s(tokens[j].word)
+                or tokens[j].label == "m3"
+                or getattr(tokens[j], "subtype", "") == "possessive adj"
                 for j in range(start, np_end)
             ):
                 i = max(np_end, start + 1)
@@ -115,7 +117,11 @@ class LawZRule(Rule):
                 low = tok.word.lower()
                 label = tok.label
 
-                if label == "m1" and low not in vague:
+                if (
+                    label == "m1"
+                    and low not in vague
+                    and getattr(tok, "subtype", "") != "possessive adj"
+                ):
                     has_real_m1 = True
 
                 if label in ("m2", "adv", "m1"):
@@ -166,7 +172,7 @@ class LawZRule(Rule):
             combined = Token(
                 word=" ".join(t.word for t in span),
                 label="m1",
-                numtype="",
+                subtype="",
                 role="quantifier_phrase (multi-word)",
                 index=first.index,
                 original=" ".join(t.original or t.word for t in span).strip(),
