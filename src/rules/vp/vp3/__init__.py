@@ -1,4 +1,1 @@
-"""قوانین فاز vp3"""
-from .placeholder_rule import Vp3PlaceholderRule
-
-__all__ = ["Vp3PlaceholderRule"]
+"""Rule package: vp3 — modules are auto-discovered; do not list imports here."""

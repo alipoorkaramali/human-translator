@@ -1,8 +1,1 @@
-"""قوانین خاص VP"""
-from .placeholder_rule import VpSpecialPlaceholderRule
-from .infinitive_to_rule import InfinitiveToRule
-
-__all__ = [
-    "VpSpecialPlaceholderRule",
-    "InfinitiveToRule",
-]
+"""Rule package: special — modules are auto-discovered; do not list imports here."""

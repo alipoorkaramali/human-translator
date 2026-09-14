@@ -1,4 +1,1 @@
-"""قوانین فاز m5 (NP)"""
-from .fallback_rule import FallbackRule
-
-__all__ = ["FallbackRule"]
+"""Rule package: m5 — modules are auto-discovered; do not list imports here."""
