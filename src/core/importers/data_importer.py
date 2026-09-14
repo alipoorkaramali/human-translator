@@ -13,6 +13,11 @@ DEFAULT_POSSESSIVES = {
     'my', 'your', 'his', 'her', 'its', 'our', 'their',
 }
 
+# ضمایر ملکی مستقل (جانشین NP)
+DEFAULT_POSSESSIVE_PRONOUNS = {
+    'mine', 'yours', 'hers', 'ours', 'theirs',
+}
+
 # عبارات مرکب پرکاربرد که اگر در Excel نباشند هم باید کار کنند
 DEFAULT_COMPOUNDS = {
     'a lot of', 'lots of', 'lot of',
@@ -53,6 +58,7 @@ def load_excel(excel_file: str = 'Book1.xlsx') -> dict:
     intensifier_set = col('adverbs of intensifiers')
     vague_quant_set = col('vague_quantifiers')
     possessive_set  = col('possessive') or set(DEFAULT_POSSESSIVES)
+    possessive_pronoun_set = col('possessive_pronoun') or set(DEFAULT_POSSESSIVE_PRONOUNS)
 
     # فقط از Excel — ستون preposition یا prepositions
     excel_preps = col('preposition') | col('prepositions')
@@ -74,6 +80,7 @@ def load_excel(excel_file: str = 'Book1.xlsx') -> dict:
         'vague_quant_set':  vague_quant_set,
         'preposition_set':  preposition_set,
         'possessive_set':   possessive_set,
+        'possessive_pronoun_set': possessive_pronoun_set,
     }
 
 

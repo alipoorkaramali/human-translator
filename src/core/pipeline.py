@@ -8,7 +8,7 @@ from .importers.vp_importer import import_vp_rules
 
 from src.utils import (
     preprocess_text, tokenize_english, number_type,
-    is_possessive_pronoun,
+    is_possessive_adjective, is_possessive_pronoun,
 )
 from src.ht_token import Token
 
@@ -34,11 +34,20 @@ class Pipeline:
 
         tokens = []
         poss_set = getattr(self.ctx, 'possessive_set', set()) or set()
+        poss_pron_set = getattr(self.ctx, 'possessive_pronoun_set', set()) or set()
         for i, w in enumerate(words):
             wl = w.lower()
 
-            # ملکی قبل از number_type — تا my هرگز cardinal نشود
-            if wl in poss_set or is_possessive_pronoun(w):
+            # ضمیر ملکی مستقل (جانشین NP) — قبل از number_type
+            if wl in poss_pron_set or is_possessive_pronoun(w):
+                tokens.append(Token(
+                    w, 'm1', 'possessive pronoun',
+                    role='pronoun/possessive', index=i,
+                ))
+                continue
+
+            # صفت ملکی (determiner) — قبل از number_type تا my cardinal نشود
+            if wl in poss_set or is_possessive_adjective(w):
                 tokens.append(Token(
                     w, 'm1', 'possessive adj',
                     role='determiner/possessive', index=i,
