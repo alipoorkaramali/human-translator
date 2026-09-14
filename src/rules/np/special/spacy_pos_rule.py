@@ -138,16 +138,11 @@ class SpacyPosRule(Rule):
 
         poses = _align_pos(tokens, doc)
         changed = False
-        intensifiers = getattr(ctx, "intensifier_set", set()) or set()
 
         for i, tok in enumerate(tokens):
             if tok.locked:
                 continue
             if " " in tok.word:
-                continue
-            if tok.subtype == "ordinal":
-                continue
-            if tok.word.lower() in intensifiers:
                 continue
             if tok.label in _PROTECTED_LABELS:
                 pos = poses[i]
