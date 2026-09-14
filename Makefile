@@ -52,6 +52,7 @@ run:
 	docker run --rm \
 		-v "$(CURDIR)/data:/app/data" \
 		-v "$(CURDIR)/Book1.xlsx:/app/Book1.xlsx" \
+		-v "$(CURDIR)/src:/app/src" \
 		$(IMAGE_NAME) $(INPUT_FILE)
 	@echo "✅ خروجی در data/output/."
 
@@ -64,6 +65,7 @@ endif
 	docker run --rm \
 		-v "$(CURDIR)/data:/app/data" \
 		-v "$(CURDIR)/Book1.xlsx:/app/Book1.xlsx" \
+		-v "$(CURDIR)/src:/app/src" \
 		$(IMAGE_NAME) $(FILE)
 	@echo "✅ خروجی در data/output/."
 
@@ -73,6 +75,7 @@ shell:
 	docker run --rm -it \
 		-v "$(CURDIR)/data:/app/data" \
 		-v "$(CURDIR)/Book1.xlsx:/app/Book1.xlsx" \
+		-v "$(CURDIR)/src:/app/src" \
 		--entrypoint /bin/bash \
 		$(IMAGE_NAME)
 
