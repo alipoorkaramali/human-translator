@@ -22,6 +22,25 @@ _AUTO_RULES = frozenset({
 _WATCH = ("label", "subtype", "role", "locked", "np_inner", "np_of_np")
 
 
+def is_np_boundary(token) -> bool:
+    """Local boundary check (no nltk import)."""
+    if not token:
+        return False
+    t = str(getattr(token, "word", token)).lower()
+    if " " in t:
+        return False
+    if t in {".", "!", "?", ";", ":", "—", ","}:
+        return True
+    if t in {
+        "in", "on", "at", "to", "for", "from", "with", "by", "about",
+        "into", "onto", "upon", "over", "under", "between", "among",
+        "through", "during", "before", "after", "without", "within",
+        "along", "across", "behind", "beyond", "against", "near",
+    }:
+        return True
+    return False
+
+
 def _snap(tok: Token) -> Dict[str, Any]:
     d = {k: getattr(tok, k) for k in _WATCH}
     d["word"] = tok.word
@@ -34,6 +53,26 @@ def _empty(v: Any) -> bool:
 
 def _is_auto(name: str) -> bool:
     return (name or "") in _AUTO_RULES
+
+
+def _np_span(tokens: List[Token], index: int) -> Tuple[int, int, str]:
+    """NP window: after previous boundary → before next boundary."""
+    if not tokens or index < 0 or index >= len(tokens):
+        return index, index, ""
+
+    left = index
+    while left > 0 and not is_np_boundary(tokens[left - 1].word):
+        left -= 1
+
+    right = index
+    while right < len(tokens) - 1 and not is_np_boundary(tokens[right + 1].word):
+        right += 1
+
+    pieces = []
+    for i in range(left, right + 1):
+        w = tokens[i].word
+        pieces.append(f"[{w}]" if i == index else w)
+    return left, right, " ".join(pieces)
 
 
 @dataclass
@@ -150,66 +189,55 @@ class LabelTracer:
         hand = self._dedupe_hand_events()
         lines: List[str] = []
         lines.append("=" * 64)
-        lines.append("تداخل قوانین دست‌نویس (فقط OVERRIDE واقعی)")
+        lines.append("تداخل قوانین دست‌نویس")
         if source_name:
             lines.append(f"Source: {source_name}")
         lines.append(f"Tokens: {len(tokens)}  |  conflicts: {len(hand)}")
         lines.append("=" * 64)
-        lines.append("")
-        lines.append("spaCy / WordNet در این گزارش نیستند.")
-        lines.append("")
 
-        lines.append("## Conflicts")
-        lines.append("-" * 64)
         if not hand:
+            lines.append("")
             lines.append("(none)")
-        else:
-            for e in hand:
-                c = e.changes[0]
-                lines.append(
-                    f"  [{e.token_index}] {e.word!r}: "
-                    f"{c.old} → {c.new}   "
-                    f"قانونِ بعدی: {e.rule}   "
-                    f"قانونِ قبلی: {e.prev_rule}"
-                )
+            lines.append("=" * 64)
+            return "\n".join(lines) + "\n"
+
+        for n, e in enumerate(hand, 1):
+            c = e.changes[0]
+            lo, hi, np_text = _np_span(tokens, e.token_index)
+            lines.append("")
+            lines.append(f"--- تعارض {n} ---")
+            lines.append(f"کلمه:  {e.word!r}  (جایگاه {e.token_index})")
+            lines.append(f"برچسب: {c.old}  ←تغییر به→  {c.new}")
+            lines.append(f"اول:   قانون {e.prev_rule!r}  برچسب {c.old!r} گذاشت")
+            lines.append(f"بعد:   قانون {e.rule!r}  آن را به {c.new!r} عوض کرد")
+            lines.append(f"فاز:   {e.phase}")
+            lines.append(f"NP:    {np_text}")
+            lines.append(f"       (توکن‌های {lo} … {hi})")
 
         lines.append("")
-        lines.append("## خواندن")
-        lines.append(
-            "  m1 → m2   قانونِ بعدی: more_most   قانونِ قبلی: m1_after_noun"
-        )
-        lines.append("  یعنی more_most برچسب m1 را به m2 عوض کرده.")
         lines.append("=" * 64)
         return "\n".join(lines) + "\n"
 
-    def to_events_dataframe(self) -> pd.DataFrame:
+    def _rows_with_np(self, tokens: List[Token]) -> List[dict]:
         rows = []
         for e in self._dedupe_hand_events():
             c = e.changes[0]
+            lo, hi, np_text = _np_span(tokens, e.token_index)
             rows.append(
                 {
                     "token_index": e.token_index,
                     "word": e.word,
                     "old_label": c.old,
                     "new_label": c.new,
-                    "rule": e.rule,
                     "prev_rule": e.prev_rule,
+                    "rule": e.rule,
                     "phase": e.phase,
+                    "np_from": lo,
+                    "np_to": hi,
+                    "np_text": np_text,
                 }
             )
-        if not rows:
-            return pd.DataFrame(
-                columns=[
-                    "token_index",
-                    "word",
-                    "old_label",
-                    "new_label",
-                    "rule",
-                    "prev_rule",
-                    "phase",
-                ]
-            )
-        return pd.DataFrame(rows)
+        return rows
 
     def save(
         self,
@@ -222,6 +250,20 @@ class LabelTracer:
         with open(path_txt, "w", encoding="utf-8") as f:
             f.write(text)
         if path_xlsx:
-            df = self.to_events_dataframe()
+            df = pd.DataFrame(
+                self._rows_with_np(tokens),
+                columns=[
+                    "token_index",
+                    "word",
+                    "old_label",
+                    "new_label",
+                    "prev_rule",
+                    "rule",
+                    "phase",
+                    "np_from",
+                    "np_to",
+                    "np_text",
+                ],
+            )
             with pd.ExcelWriter(path_xlsx, engine="openpyxl") as writer:
                 df.to_excel(writer, sheet_name="conflicts", index=False)
