@@ -1,33 +1,5 @@
-# اجرای آفلاین روی ویندوز
+# Windows guide
 
-## یک پنجره کافی است
+→ **[docs/WINDOWS.md](docs/WINDOWS.md)**
 
-دوبار کلیک **`start.bat`**:
-
-| کنترل | رفتار |
-|--------|--------|
-| **Auto-watch** (پیش‌فرض روشن) | با Save هر `.txt` در `data\input` همان‌جا پردازش می‌شود |
-| **Open Excel** | بعد از هر پردازش، فایل اکسل جدید باز می‌شود |
-| برداشتن تیک Auto-watch | watch خاموش می‌شود |
-
-دیگر لازم نیست `watch.bat` جدا باز باشد.
-
----
-
-## بار اول
-
-1. Docker Desktop روشن
-2. `start.bat` → **Setup (once)**
-3. فایل را در Input ذخیره کن
-
-## دستورات اختیاری
-
-| فایل | کار |
-|------|-----|
-| `start.bat` | GUI + auto-watch |
-| `watch.bat` | فقط کنسول (اختیاری) |
-| `process.bat` | یک‌بار همه فایل‌ها |
-
-## قوانین بدون rebuild
-
-`src/` و `Book1.xlsx` live mount هستند — تغییر قانون → Save → Process بعدی.
+Quick start: double-click `start.bat` (or `windows\start.bat`).
