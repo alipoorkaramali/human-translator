@@ -66,9 +66,6 @@ class WordNetFinalizeRule(Rule):
                     tok.label = "adv"
                     tok.role = "adverb (intensifier)"
                     changed = True
-                if not tok.locked:
-                    tok.locked = True
-                    changed = True
 
         for i in range(len(tokens) - 1):
             tok = tokens[i]
