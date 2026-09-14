@@ -14,6 +14,7 @@ function Get-HTPaths {
         InputDir    = Join-Path $root "data\input"
         OutputDir   = Join-Path $root "data\output"
         BookFile    = Join-Path $root "Book1.xlsx"
+        SrcDir      = Join-Path $root "src"
         NltkData    = Join-Path $root "nltk_data"
         LogFile     = Join-Path $root "data\output\processor.log"
         LockDir     = Join-Path $root "data\output\.locks"
@@ -153,13 +154,17 @@ function Invoke-HTProcessFile {
         $dataRoot = Split-Path $Paths.InputDir -Parent
         $dockerDataPath = Get-DockerPath $dataRoot
         $dockerBookPath = Get-DockerPath $Paths.BookFile
+        $dockerSrcPath  = Get-DockerPath $Paths.SrcDir
         $containerInput = "data/input/$fileName"
 
+        # src و Book1 از میزبان mount می‌شوند تا تغییر قوانین/داده
+        # بدون rebuild ایمیج بلافاصله اعمال شود.
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
         $dockerArgs = @(
             "run", "--rm",
             "-v", "${dockerDataPath}:/app/data",
             "-v", "${dockerBookPath}:/app/Book1.xlsx",
+            "-v", "${dockerSrcPath}:/app/src",
             $Paths.ImageName,
             $containerInput
         )
