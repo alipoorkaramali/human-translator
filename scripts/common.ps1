@@ -1,10 +1,8 @@
 # ============================================================
-# common.ps1 - Shared helpers for Windows offline scripts
-# ASCII-only messages (safe for Windows PowerShell 5.1)
+# common.ps1 - shared helpers for Windows offline scripts
 # ============================================================
 
 $script:HT_ImageName = "text-processor"
-$script:HT_DockerExe = $null
 
 function Get-HTPaths {
     $scriptDir = $PSScriptRoot
@@ -54,11 +52,17 @@ function Write-HTLog {
     )
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $line = "[$ts] [$Level] $Message"
-    switch ($Level) {
-        "INFO"  { Write-Host $line -ForegroundColor Cyan }
-        "WARN"  { Write-Host $line -ForegroundColor Yellow }
-        "ERROR" { Write-Host $line -ForegroundColor Red }
-        "OK"    { Write-Host $line -ForegroundColor Green }
+
+    # Prefer GUI status panel when available (no console needed)
+    if ($global:HT_GuiLog -and $global:HT_GuiLog -is [scriptblock]) {
+        try { & $global:HT_GuiLog $Message $Level } catch { }
+    } else {
+        switch ($Level) {
+            "INFO"  { Write-Host $line -ForegroundColor Cyan }
+            "WARN"  { Write-Host $line -ForegroundColor Yellow }
+            "ERROR" { Write-Host $line -ForegroundColor Red }
+            "OK"    { Write-Host $line -ForegroundColor Green }
+        }
     }
     if ($Paths -and $Paths.LogFile) {
         try {
@@ -74,102 +78,37 @@ function Get-DockerPath([string]$Path) {
 }
 
 function Resolve-HTDockerExe {
-    if ($script:HT_DockerExe -and (Test-Path $script:HT_DockerExe)) {
-        return $script:HT_DockerExe
-    }
-
     $cmd = Get-Command docker -ErrorAction SilentlyContinue
-    if ($cmd -and $cmd.Source) {
-        $script:HT_DockerExe = $cmd.Source
-        return $script:HT_DockerExe
-    }
-
+    if ($cmd -and $cmd.Source) { return $cmd.Source }
     $candidates = @(
         "$env:ProgramFiles\Docker\Docker\resources\bin\docker.exe",
         "${env:ProgramFiles(x86)}\Docker\Docker\resources\bin\docker.exe",
         "$env:LOCALAPPDATA\Programs\Docker\Docker\resources\bin\docker.exe"
     )
-    foreach ($p in $candidates) {
-        if ($p -and (Test-Path $p)) {
-            $script:HT_DockerExe = $p
-            return $script:HT_DockerExe
-        }
+    foreach ($c in $candidates) {
+        if ($c -and (Test-Path $c)) { return $c }
     }
     return $null
 }
 
-function Invoke-HTNativeDocker {
-    # Run docker via cmd so stderr WARNINGs do not become terminating
-    # PowerShell errors under $ErrorActionPreference = 'Stop'.
-    param(
-        [string]$Exe,
-        [string[]]$Args
-    )
-    $argLine = ($Args | ForEach-Object {
-        if ($_ -match '\s') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ }
-    }) -join ' '
-
-    $quotedExe = '"' + $Exe + '"'
-    cmd.exe /c "$quotedExe $argLine" | Out-Null
-    return $LASTEXITCODE
-}
-
-function Get-HTDockerStatus {
-    # Returns: @{ Ok = $bool; Reason = $string; Exe = $string }
-    $prevEap = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        $exe = Resolve-HTDockerExe
-        if (-not $exe) {
-            return @{
-                Ok = $false
-                Reason = "docker.exe not found in PATH or default install folders. Install Docker Desktop."
-                Exe = $null
-            }
-        }
-
-        $verExit = Invoke-HTNativeDocker -Exe $exe -Args @('--version')
-        if ($verExit -ne 0) {
-            return @{
-                Ok = $false
-                Reason = "docker --version failed (exit=$verExit). Is Docker Desktop installed?"
-                Exe = $exe
-            }
-        }
-
-        $infoExit = Invoke-HTNativeDocker -Exe $exe -Args @('info')
-        if ($infoExit -ne 0) {
-            return @{
-                Ok = $false
-                Reason = "Docker Desktop engine is not running (docker info exit=$infoExit). Open Docker Desktop and wait until status is Running."
-                Exe = $exe
-            }
-        }
-
-        return @{ Ok = $true; Reason = "OK"; Exe = $exe }
-    } finally {
-        $ErrorActionPreference = $prevEap
-    }
-}
-
 function Test-HTDocker {
     param($Paths)
-    $st = Get-HTDockerStatus
-    return [bool]$st.Ok
+    $exe = Resolve-HTDockerExe
+    if (-not $exe) { return $false }
+    try {
+        & $exe --version 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { return $false }
+        & $exe info 2>&1 | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    } catch { return $false }
 }
 
 function Test-HTImage {
     param($Paths)
     $exe = Resolve-HTDockerExe
     if (-not $exe) { return $false }
-    $prevEap = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        $id = cmd.exe /c "`"$exe`" images -q $($Paths.ImageName)" 2>$null
-        return [bool]($id -and "$id".Trim())
-    } finally {
-        $ErrorActionPreference = $prevEap
-    }
+    $id = & $exe images -q $Paths.ImageName 2>$null
+    return [bool]$id
 }
 
 function Ensure-HTDirs {
@@ -229,7 +168,7 @@ function Invoke-HTProcessFile {
 
     Set-FileLock $Paths $fileName
     try {
-        Write-HTLog "Processing: $fileName" "INFO" $Paths
+        Write-HTLog "Input changed: $fileName — processing..." "INFO" $Paths
 
         $tempExcel = Join-Path $Paths.OutputDir "output.xlsx"
         $tempTxt   = Join-Path $Paths.OutputDir "output.txt"
@@ -266,10 +205,13 @@ function Invoke-HTProcessFile {
         $sw.Stop()
 
         foreach ($line in $output) {
-            $s = "$line"
-            if ($s -match "ERROR") { Write-HTLog $s "ERROR" $Paths }
-            elseif ($s -match "WARNING") { Write-HTLog $s "WARN" $Paths }
-            elseif ($s -match "INFO|OK") { Write-HTLog $s "INFO" $Paths }
+            $s = "$line".Trim()
+            if (-not $s) { continue }
+            if ($s -match "(?i)error|traceback|exception|failed") {
+                if ($s -notmatch "(?i)deprecated|warning") {
+                    Write-HTLog $s "ERROR" $Paths
+                }
+            }
         }
 
         if ($exitCode -eq 0) {
@@ -279,7 +221,10 @@ function Invoke-HTProcessFile {
             if (Test-Path $tempTxt)   { Move-Item -Force $tempTxt $newTxt }
 
             $sec = [math]::Round($sw.Elapsed.TotalSeconds, 2)
-            Write-HTLog "OK (${sec}s) -> output_${baseName}.xlsx" "OK" $Paths
+            Write-HTLog "Excel updated: output_${baseName}.xlsx (${sec}s)" "OK" $Paths
+            if (Test-Path $newTxt) {
+                Write-HTLog "Summary saved: output_${baseName}.txt" "INFO" $Paths
+            }
 
             $shouldOpen = $OpenExcel -or ($Config -and $Config.OpenExcel)
             if ($shouldOpen -and (Test-Path $newExcel)) {
