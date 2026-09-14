@@ -38,31 +38,22 @@ if (-not (Test-Path $Paths.BookFile)) {
 }
 Write-HTLog "Book1.xlsx OK" "OK" $Paths
 
-$required = @("tokenizers\punkt", "corpora\wordnet", "corpora\cmudict")
-function Test-NltkReady {
-    if (-not (Test-Path $Paths.NltkData)) { return $false }
-    foreach ($pkg in $required) {
-        $p = Join-Path $Paths.NltkData $pkg
-        if (-not (Test-Path $p) -and -not (Test-Path "$p.zip")) { return $false }
-    }
-    return $true
-}
-
-if (-not (Test-NltkReady)) {
-    Write-HTLog "nltk_data incomplete - trying download..." "WARN" $Paths
+# Host nltk_data is optional now (image downloads its own during build).
+# Still try to prepare it for developers who run without Docker.
+if (-not (Test-Path $Paths.NltkData)) {
+    Write-HTLog "Host nltk_data missing (OK for Docker build; optional for local Python)" "WARN" $Paths
     $py = Get-Command python -ErrorAction SilentlyContinue
     if (-not $py) { $py = Get-Command py -ErrorAction SilentlyContinue }
     if ($py) {
+        Write-HTLog "Trying optional NLTK download on host..." "INFO" $Paths
         $env:NLTK_DATA = $Paths.NltkData
         & $py.Source (Join-Path $Paths.ScriptDir "download_nltk.py")
-        if ($LASTEXITCODE -ne 0) { Write-HTLog "NLTK download failed" "ERROR" $Paths; exit 1 }
-    } else {
-        Write-HTLog "Python not found for NLTK download. Place nltk_data manually." "ERROR" $Paths
-        exit 1
+        if ($LASTEXITCODE -eq 0) { Write-HTLog "Host nltk_data prepared" "OK" $Paths }
+        else { Write-HTLog "Host NLTK download skipped/failed (Docker build will still work)" "WARN" $Paths }
     }
+} else {
+    Write-HTLog "Host nltk_data found" "OK" $Paths
 }
-if (-not (Test-NltkReady)) { Write-HTLog "nltk_data still incomplete" "ERROR" $Paths; exit 1 }
-Write-HTLog "nltk_data OK" "OK" $Paths
 
 if (-not (Test-Path $Paths.Dockerfile)) {
     Write-HTLog "Dockerfile.offline not found" "ERROR" $Paths
@@ -75,12 +66,36 @@ if ($hasImage -and -not $Rebuild) {
 } else {
     if ($Rebuild -and $hasImage) {
         Write-HTLog "Removing old image..." "INFO" $Paths
-        docker rmi $Paths.ImageName 2>$null | Out-Null
+        docker rmi -f $Paths.ImageName 2>$null | Out-Null
     }
-    Write-HTLog "Building offline image (may take a few minutes)..." "INFO" $Paths
-    docker build -f docker/Dockerfile.offline -t $Paths.ImageName .
-    if ($LASTEXITCODE -ne 0) { Write-HTLog "docker build failed" "ERROR" $Paths; exit 1 }
-    Write-HTLog "Image built" "OK" $Paths
+
+    Write-HTLog "Building offline image (needs internet; may take several minutes)..." "INFO" $Paths
+    Write-HTLog "Full build log -> $($Paths.LogFile)" "INFO" $Paths
+
+    $buildLog = Join-Path $Paths.OutputDir "docker-build.log"
+    $ErrorActionPreference = "Continue"
+    docker build --progress=plain -f docker/Dockerfile.offline -t $Paths.ImageName . 2>&1 |
+        ForEach-Object {
+            $line = "$_"
+            Write-Host $line
+            try { Add-Content -Path $Paths.LogFile -Value $line -Encoding UTF8 } catch { }
+            try { Add-Content -Path $buildLog -Value $line -Encoding UTF8 } catch { }
+        }
+    $buildExit = $LASTEXITCODE
+    $ErrorActionPreference = "Stop"
+
+    if ($buildExit -ne 0) {
+        Write-HTLog "docker build FAILED (exit=$buildExit)" "ERROR" $Paths
+        Write-HTLog "See: data\output\docker-build.log" "ERROR" $Paths
+        Write-Host ""
+        Write-Host "Common fixes:" -ForegroundColor Yellow
+        Write-Host "  1) Docker Desktop must be Running (whale icon)" -ForegroundColor Yellow
+        Write-Host "  2) Internet required during first build (pip + spaCy + NLTK)" -ForegroundColor Yellow
+        Write-Host "  3) Book1.xlsx must exist in project root" -ForegroundColor Yellow
+        Write-Host "  4) Open data\output\docker-build.log for the real error" -ForegroundColor Yellow
+        exit 1
+    }
+    Write-HTLog "Image built OK" "OK" $Paths
 }
 
 if ($Config.SmokeTest -and -not $SkipSmoke) {
@@ -88,7 +103,7 @@ if ($Config.SmokeTest -and -not $SkipSmoke) {
     if (Invoke-HTSmokeTest $Paths) {
         Write-HTLog "Smoke test passed" "OK" $Paths
     } else {
-        Write-HTLog "Smoke test failed - try setup.bat -Rebuild" "ERROR" $Paths
+        Write-HTLog "Smoke test failed - image built but process failed; check processor.log" "ERROR" $Paths
         exit 1
     }
 }

@@ -9,24 +9,36 @@ ENV NLTK_DATA=/usr/share/nltk_data \
 
 COPY requirements.txt .
 
-# وابستگی‌ها + مدل spaCy داخل ایمیج (بدون نیاز به اینترنت در runtime)
-# نکته: ساخت ایمیج باید یک‌بار با اینترنت انجام شود.
+# Install deps + spaCy model (needs internet ONCE at build time)
 RUN pip install --no-cache-dir -r requirements.txt \
     && python -m spacy download en_core_web_sm \
     && python -c "import spacy; spacy.load('en_core_web_sm'); print('spaCy model OK')"
 
-# کپی دیتای NLTK از پروژه (آفلاین)
-COPY nltk_data/ /usr/share/nltk_data/
+# Download NLTK data inside the image (does not require host nltk_data/)
+RUN mkdir -p /usr/share/nltk_data \
+    && python -c "import nltk; \
+nltk.download('punkt', download_dir='/usr/share/nltk_data'); \
+nltk.download('punkt_tab', download_dir='/usr/share/nltk_data'); \
+nltk.download('wordnet', download_dir='/usr/share/nltk_data'); \
+nltk.download('omw-1.4', download_dir='/usr/share/nltk_data'); \
+nltk.download('cmudict', download_dir='/usr/share/nltk_data'); \
+print('NLTK data OK')"
 
-# استخراج wordnet.zip در صورت نیاز
-RUN cd /usr/share/nltk_data/corpora && \
-    if [ -f "wordnet.zip" ] && [ ! -d "wordnet" ]; then \
-        python -c "import zipfile; zipfile.ZipFile('wordnet.zip').extractall('.')"; \
-    fi
+# Optional: overlay host nltk_data if the folder exists in build context.
+# If missing, build still succeeds (in-image download above).
+COPY nltk_data* /tmp/nltk_host/
+RUN if [ -d /tmp/nltk_host/nltk_data ]; then \
+      cp -a /tmp/nltk_host/nltk_data/. /usr/share/nltk_data/; \
+    elif [ -d /tmp/nltk_host ] && [ "$(ls -A /tmp/nltk_host 2>/dev/null)" ]; then \
+      cp -a /tmp/nltk_host/. /usr/share/nltk_data/; \
+    fi \
+    && rm -rf /tmp/nltk_host \
+    && cd /usr/share/nltk_data/corpora 2>/dev/null || true \
+    && if [ -f wordnet.zip ] && [ ! -d wordnet ]; then \
+         python -c "import zipfile; zipfile.ZipFile('wordnet.zip').extractall('.')"; \
+       fi
 
-# نسخهٔ داخل ایمیج = fallback.
-# در runtime، scripts با -v src:/app/src و Book1.xlsx را mount می‌کنند
-# تا تغییر قوانین بدون rebuild اعمال شود.
+# Image copy = fallback. Runtime mounts src/ and Book1.xlsx from host.
 COPY src/ ./src/
 COPY Book1.xlsx ./
 

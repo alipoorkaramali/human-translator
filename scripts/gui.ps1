@@ -198,20 +198,26 @@ $form.Controls.Add($lblStatus)
 $script:busy = $false
 
 $btnSetup.Add_Click({
-    Start-HTJob -BusyMsg "Setup running..." -Work {
+    Start-HTJob -BusyMsg "Setup running (may take several minutes)..." -Work {
         $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "setup.ps1"))
         $p = Start-Process -FilePath "powershell.exe" -ArgumentList $argList -Wait -PassThru -NoNewWindow
         if ($p.ExitCode -eq 0) { Append-Status "Setup finished" "OK" }
-        else { Append-Status "Setup failed (exit $($p.ExitCode))" "ERROR" }
+        else {
+            Append-Status "Setup failed (exit $($p.ExitCode)). Open Log for details." "ERROR"
+            Append-Status "Also check: data\output\docker-build.log" "ERROR"
+        }
     }
 })
 
 $btnRebuild.Add_Click({
-    Start-HTJob -BusyMsg "Rebuilding image..." -Work {
+    Start-HTJob -BusyMsg "Rebuilding image (internet required)..." -Work {
         $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "setup.ps1"), "-Rebuild")
         $p = Start-Process -FilePath "powershell.exe" -ArgumentList $argList -Wait -PassThru -NoNewWindow
         if ($p.ExitCode -eq 0) { Append-Status "Rebuild OK" "OK" }
-        else { Append-Status "Rebuild failed" "ERROR" }
+        else {
+            Append-Status "Rebuild failed (exit $($p.ExitCode)). Open Log." "ERROR"
+            Append-Status "See data\output\docker-build.log for docker errors" "ERROR"
+        }
     }
 })
 
@@ -241,7 +247,9 @@ $btnOutput.Add_Click({
     Start-Process explorer.exe $Paths.OutputDir
 })
 $btnLog.Add_Click({
-    if (Test-Path $Paths.LogFile) { Start-Process notepad.exe $Paths.LogFile }
+    $buildLog = Join-Path $Paths.OutputDir "docker-build.log"
+    if (Test-Path $buildLog) { Start-Process notepad.exe $buildLog }
+    elseif (Test-Path $Paths.LogFile) { Start-Process notepad.exe $Paths.LogFile }
     else { Append-Status "No log yet" "WARN" }
 })
 
