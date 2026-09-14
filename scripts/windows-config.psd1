@@ -1,19 +1,22 @@
 @{
-    # باز کردن خودکار فایل Excel بعد از هر پردازش (watch)
+    # Open Excel after each processed file
     OpenExcel  = $false
 
-    # باز کردن پوشه خروجی بعد از process.bat
+    # Open output folder after process.bat
     OpenFolder = $true
 
-    # تأخیر debounce قبل از پردازش (میلی‌ثانیه)
-    DebounceMs = 800
+    # Debounce before processing (ms) — wait until editor finishes Save
+    DebounceMs = 900
 
-    # فاصله polling در watch (میلی‌ثانیه)
-    PollMs     = 800
+    # Poll interval backup (ms)
+    PollMs     = 1000
 
-    # نوشتن لاگ در data/output/processor.log
+    # Write data/output/processor.log
     LogToFile  = $true
 
-    # بعد از setup یک smoke test روی ایمیج اجرا شود
+    # Smoke test after setup
     SmokeTest  = $true
+
+    # When watch starts, process files already sitting in data/input
+    ProcessExistingOnStart = $false
 }
