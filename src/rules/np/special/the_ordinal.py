@@ -55,7 +55,6 @@ class TheOrdinalRule(Rule):
         cardinals = getattr(ctx, "cardinal_numbers", set()) or set()
         ordinals = getattr(ctx, "ordinal_numbers", set()) or set()
 
-        # دفاعی قبل از حلقه
         if _force_the_ordinal_m1(tokens, cardinals, ordinals):
             changed = True
 
@@ -70,7 +69,6 @@ class TheOrdinalRule(Rule):
                 continue
 
             cur = tokens[i]
-            # the + ordinal تک‌کلمه → ادغام m1
             if cur.word.lower() == "the" and cur.label in ("", "m1"):
                 combined = Token(
                     word=f"the {nxt.word}",
@@ -79,20 +77,23 @@ class TheOrdinalRule(Rule):
                     role="determiner/quantifier",
                     index=cur.index,
                     original=f"{cur.original} {nxt.original}".strip(),
-                    locked=True,  # قفل تا دور بعد خراب نشود
+                    locked=True,
                 )
                 tokens[i:i + 2] = [combined]
                 changed = True
-                # i ثابت؛ توکن بعدی بعد از ادغام بررسی می‌شود
             else:
-                # ordinal تنها (بدون the) → adv
-                if not nxt.locked and nxt.label != "adv":
-                    nxt.label = "adv"
-                    nxt.role = "adverb"
+                # ordinal تنها → adv + lock (جلوگیری از جنگ با spaCy در max_iter)
+                if not nxt.locked:
+                    if nxt.label != "adv" or nxt.role != "adverb":
+                        nxt.label = "adv"
+                        nxt.role = "adverb"
+                        if not nxt.subtype:
+                            nxt.subtype = "ordinal"
+                        changed = True
+                    nxt.locked = True
                     changed = True
                 i += 1
 
-        # دفاعی بعد از حلقه
         if _force_the_ordinal_m1(tokens, cardinals, ordinals):
             changed = True
 
