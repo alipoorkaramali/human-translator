@@ -1,11 +1,8 @@
 """
-Label / rule conflict audit.
+Conflict report for hand-written rules only.
 
-Default report is CONFLICT-ONLY:
-  - label OVERRIDE (non-empty → different non-empty) by a later rule
-  - oscillation loops (A→B→A… between two rules)
-
-Seed / SET / CLEAR / merge index-shift noise is NOT listed.
+Ignores automatic POS engines (spaCy, WordNet). Collapses oscillation
+noise to one line per unique conflict. Seed / SET / CLEAR / merges omitted.
 """
 from __future__ import annotations
 
@@ -15,6 +12,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 
 from src.ht_token import Token
+
+_AUTO_RULES = frozenset({
+    "spacy_pos",
+    "wordnet_finalize",
+    "seed",
+})
 
 _WATCH = ("label", "subtype", "role", "locked", "np_inner", "np_of_np")
 
@@ -27,6 +30,10 @@ def _snap(tok: Token) -> Dict[str, Any]:
 
 def _empty(v: Any) -> bool:
     return v in ("", None, "unknown", False)
+
+
+def _is_auto(name: str) -> bool:
+    return (name or "") in _AUTO_RULES
 
 
 @dataclass
@@ -54,13 +61,13 @@ class LabelTracer:
         self._step = 0
         self.enabled = True
         self._last_setter: Dict[Tuple[int, str], str] = {}
-        self._label_hist: Dict[Tuple[int, str], List[Tuple[str, str]]] = {}
+        self._raw_overrides: List[TraceEvent] = []
 
     def clear(self) -> None:
         self.events.clear()
+        self._raw_overrides.clear()
         self._step = 0
         self._last_setter.clear()
-        self._label_hist.clear()
 
     @staticmethod
     def snapshot(tokens: List[Token]) -> List[Dict[str, Any]]:
@@ -78,10 +85,9 @@ class LabelTracer:
 
         if len(before) != len(tokens):
             self._last_setter.clear()
-            self._label_hist.clear()
             return 1
 
-        n_override = 0
+        n = 0
         for i, tok in enumerate(tokens):
             if i >= len(before):
                 break
@@ -98,8 +104,6 @@ class LabelTracer:
 
             if _empty(old_lab) and not _empty(new_lab):
                 self._last_setter[(i, "label")] = rule_name
-                key = (i, tok.word)
-                self._label_hist.setdefault(key, []).append((rule_name, new_lab))
                 continue
 
             if not _empty(old_lab) and _empty(new_lab):
@@ -108,134 +112,101 @@ class LabelTracer:
 
             prev_rule = self._last_setter.get((i, "label"), "?")
             self._step += 1
-            self.events.append(
-                TraceEvent(
-                    step=self._step,
-                    phase=phase,
-                    rule=rule_name,
-                    token_index=i,
-                    word=tok.word,
-                    changes=[
-                        FieldChange(
-                            field="label",
-                            old=str(old_lab),
-                            new=str(new_lab),
-                            kind="OVERRIDE",
-                        )
-                    ],
-                    prev_rule=prev_rule,
-                )
+            ev = TraceEvent(
+                step=self._step,
+                phase=phase,
+                rule=rule_name,
+                token_index=i,
+                word=tok.word,
+                changes=[
+                    FieldChange("label", str(old_lab), str(new_lab), "OVERRIDE")
+                ],
+                prev_rule=prev_rule,
             )
+            self._raw_overrides.append(ev)
+            if not _is_auto(rule_name):
+                self.events.append(ev)
             self._last_setter[(i, "label")] = rule_name
-            key = (i, tok.word)
-            self._label_hist.setdefault(key, []).append((rule_name, new_lab))
-            n_override += 1
+            n += 1
+        return n
 
-        return n_override
-
-    def override_events(self) -> List[TraceEvent]:
-        return list(self.events)
-
-    def oscillation_loops(self) -> List[str]:
-        lines = []
-        for (idx, word), hist in self._label_hist.items():
-            if len(hist) < 4:
+    def _dedupe_hand_events(self) -> List[TraceEvent]:
+        seen = set()
+        out = []
+        for e in self.events:
+            c = e.changes[0]
+            sig = (e.token_index, e.word, c.old, c.new, e.rule, e.prev_rule)
+            if sig in seen:
                 continue
-            labels = [h[1] for h in hist]
-            uniq = list(dict.fromkeys(labels))
-            if len(uniq) != 2:
-                continue
-            lines.append(
-                f"  [{idx}] {word!r}: "
-                f"{' → '.join(f'{r}({lb})' for r, lb in hist)} "
-                f"  ⚠ loop between {uniq[0]!r} and {uniq[1]!r}"
-            )
-        return lines
+            seen.add(sig)
+            out.append(e)
+        return out
 
     def format_text_report(
         self,
         tokens: List[Token],
         source_name: str = "",
     ) -> str:
+        hand = self._dedupe_hand_events()
         lines: List[str] = []
-        lines.append("=" * 72)
-        lines.append("LABEL CONFLICTS ONLY (OVERRIDE)")
+        lines.append("=" * 64)
+        lines.append("تداخل قوانین دست‌نویس (فقط OVERRIDE واقعی)")
         if source_name:
             lines.append(f"Source: {source_name}")
-        lines.append(
-            f"Tokens: {len(tokens)}  |  real overrides: {len(self.events)}"
-        )
-        lines.append("=" * 72)
+        lines.append(f"Tokens: {len(tokens)}  |  conflicts: {len(hand)}")
+        lines.append("=" * 64)
         lines.append("")
-        lines.append(
-            "Only cases where a non-empty label was replaced by a different "
-            "non-empty label."
-        )
-        lines.append("Seed / SET / CLEAR / merge shifts are omitted on purpose.")
+        lines.append("spaCy / WordNet در این گزارش نیستند.")
         lines.append("")
 
-        lines.append("## Overrides")
-        lines.append("-" * 72)
-        if not self.events:
+        lines.append("## Conflicts")
+        lines.append("-" * 64)
+        if not hand:
             lines.append("(none)")
         else:
-            for e in self.events:
+            for e in hand:
                 c = e.changes[0]
                 lines.append(
                     f"  [{e.token_index}] {e.word!r}: "
-                    f"{c.old!r} → {c.new!r}"
-                    f"  by {e.rule}@{e.phase}"
-                    f"  (was set by {e.prev_rule or '?'})"
+                    f"{c.old} → {c.new}   "
+                    f"قانونِ بعدی: {e.rule}   "
+                    f"قانونِ قبلی: {e.prev_rule}"
                 )
 
-        loops = self.oscillation_loops()
         lines.append("")
-        lines.append("## Oscillation loops (rules fighting each other)")
-        lines.append("-" * 72)
-        if not loops:
-            lines.append("(none)")
-        else:
-            lines.extend(loops)
-
-        lines.append("")
-        lines.append("## How to read")
+        lines.append("## خواندن")
         lines.append(
-            "  m2 → adv by rule_X (was set by rule_Y)\n"
-            "  → rule_Y put m2, then rule_X overwrote it to adv.\n"
-            "  Fix: change priority, add lock, or narrow the later rule."
+            "  m1 → m2   قانونِ بعدی: more_most   قانونِ قبلی: m1_after_noun"
         )
-        lines.append("=" * 72)
+        lines.append("  یعنی more_most برچسب m1 را به m2 عوض کرده.")
+        lines.append("=" * 64)
         return "\n".join(lines) + "\n"
 
     def to_events_dataframe(self) -> pd.DataFrame:
         rows = []
-        for e in self.events:
-            for c in e.changes:
-                rows.append(
-                    {
-                        "step": e.step,
-                        "phase": e.phase,
-                        "rule": e.rule,
-                        "prev_rule": e.prev_rule,
-                        "token_index": e.token_index,
-                        "word": e.word,
-                        "old_label": c.old,
-                        "new_label": c.new,
-                        "kind": c.kind,
-                    }
-                )
+        for e in self._dedupe_hand_events():
+            c = e.changes[0]
+            rows.append(
+                {
+                    "token_index": e.token_index,
+                    "word": e.word,
+                    "old_label": c.old,
+                    "new_label": c.new,
+                    "rule": e.rule,
+                    "prev_rule": e.prev_rule,
+                    "phase": e.phase,
+                }
+            )
         if not rows:
             return pd.DataFrame(
                 columns=[
-                    "step",
-                    "phase",
-                    "rule",
-                    "prev_rule",
                     "token_index",
                     "word",
                     "old_label",
                     "new_label",
-                    "kind",
+                    "rule",
+                    "prev_rule",
+                    "phase",
                 ]
             )
         return pd.DataFrame(rows)
@@ -252,24 +223,5 @@ class LabelTracer:
             f.write(text)
         if path_xlsx:
             df = self.to_events_dataframe()
-            summary = []
-            by_tok: Dict[Tuple[int, str], List[TraceEvent]] = {}
-            for e in self.events:
-                by_tok.setdefault((e.token_index, e.word), []).append(e)
-            for (idx, word), evs in sorted(by_tok.items()):
-                path = " → ".join(
-                    f"{e.prev_rule}({e.changes[0].old})→{e.rule}({e.changes[0].new})"
-                    for e in evs
-                )
-                summary.append(
-                    {
-                        "index": idx,
-                        "word": word,
-                        "override_count": len(evs),
-                        "path": path,
-                    }
-                )
-            summary_df = pd.DataFrame(summary)
             with pd.ExcelWriter(path_xlsx, engine="openpyxl") as writer:
-                df.to_excel(writer, sheet_name="overrides", index=False)
-                summary_df.to_excel(writer, sheet_name="by_token", index=False)
+                df.to_excel(writer, sheet_name="conflicts", index=False)
