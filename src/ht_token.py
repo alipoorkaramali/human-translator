@@ -7,7 +7,7 @@ class Token:
 
     word: str
     label: str = ''          # m1..m5, N, V, adv, ''
-    subtype: str = ''        # cardinal | ordinal | possessive adj | ''
+    subtype: str = ''        # cardinal | ordinal | possessive adj | possessive pronoun | ''
     role: str = 'unknown'    # نقش واژگانی / دستوری
     locked: bool = False     # قوانین بعدی تغییر ندهند
 

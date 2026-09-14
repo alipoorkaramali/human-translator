@@ -1,8 +1,9 @@
-"""قانون: دو توکن متوالی m1 را قفل می‌کند.
+"""
+قفل جفت m1 متوالی (غیر از موارد استثنا).
 
-استثناها (قفل نمی‌شوند):
-  • هر طرف subtype=possessive adj
-  • the/a/an + ordinal  (باید توسط TheOrdinalRule ادغام شوند)
+استثناها:
+  • هر طرف subtype=possessive adj یا possessive pronoun
+  • the/a/an + ordinal (برای TheOrdinalRule)
 """
 from typing import List, TYPE_CHECKING
 
@@ -28,9 +29,10 @@ class DoubleM1Rule(Rule):
                 continue
             if a.label == "m1" and b.label == "m1":
                 # ملکی + m1 دیگر: قفل دوگانهٔ quantifier اعمال نشود
-                if (
-                    getattr(a, "subtype", "") == "possessive adj"
-                    or getattr(b, "subtype", "") == "possessive adj"
+                if getattr(a, "subtype", "") in (
+                    "possessive adj", "possessive pronoun"
+                ) or getattr(b, "subtype", "") in (
+                    "possessive adj", "possessive pronoun"
                 ):
                     continue
                 # the/a/an + ordinal → TheOrdinalRule باید ادغام کند

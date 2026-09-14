@@ -30,6 +30,9 @@ class PossessiveAdjRule(Rule):
                 continue
             if tok.word.lower() not in poss:
                 continue
+            # ضمیر مستقل را دست نزن
+            if tok.subtype == "possessive pronoun":
+                continue
             if tok.label != "m1":
                 tok.label = "m1"
                 changed = True
