@@ -52,8 +52,6 @@ function Write-HTLog {
     )
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $line = "[$ts] [$Level] $Message"
-
-    # Prefer GUI status panel when available (no console needed)
     if ($global:HT_GuiLog -and $global:HT_GuiLog -is [scriptblock]) {
         try { & $global:HT_GuiLog $Message $Level } catch { }
     } else {
@@ -91,16 +89,43 @@ function Resolve-HTDockerExe {
     return $null
 }
 
-function Test-HTDocker {
+function Invoke-HTNativeDocker {
+    param([string[]]$DockerArgs)
+    $exe = Resolve-HTDockerExe
+    if (-not $exe) { return @{ ExitCode = 127; Output = @("docker.exe not found") } }
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $output = & $exe @DockerArgs 2>&1
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    return @{ ExitCode = $code; Output = @($output) }
+}
+
+function Get-HTDockerStatus {
     param($Paths)
     $exe = Resolve-HTDockerExe
-    if (-not $exe) { return $false }
+    if (-not $exe) {
+        return @{ Ok = $false; Reason = "docker.exe not found. Install Docker Desktop." }
+    }
     try {
         & $exe --version 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) { return $false }
+        if ($LASTEXITCODE -ne 0) {
+            return @{ Ok = $false; Reason = "docker --version failed. Is Docker Desktop installed?" }
+        }
         & $exe info 2>&1 | Out-Null
-        return ($LASTEXITCODE -eq 0)
-    } catch { return $false }
+        if ($LASTEXITCODE -ne 0) {
+            return @{ Ok = $false; Reason = "Docker engine not running. Open Docker Desktop." }
+        }
+        return @{ Ok = $true; Reason = "OK" }
+    } catch {
+        return @{ Ok = $false; Reason = $_.Exception.Message }
+    }
+}
+
+function Test-HTDocker {
+    param($Paths)
+    $st = Get-HTDockerStatus $Paths
+    return [bool]$st.Ok
 }
 
 function Test-HTImage {
