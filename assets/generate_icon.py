@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
-"""Generate or restore assets/app.ico for Windows GUI."""
+"""Restore assets/app.ico for Windows GUI (from app.ico.b64 or Pillow)."""
 from pathlib import Path
 import base64
 import sys
 
 ROOT = Path(__file__).resolve().parent
 
-def write_embedded() -> Path:
-    # embedded multi-size ICO (built offline); no Pillow required
-    path = ROOT / "app.ico"
-    # Load from sibling if present, else minimal placeholder is wrong —
-    # full payload written by repo maintainer path:
-    data_path = ROOT / "app.ico.b64"
-    if data_path.exists():
-        path.write_bytes(base64.b64decode(data_path.read_text().strip()))
-        return path
-    raise SystemExit("assets/app.ico.b64 missing — run with Pillow once")
 
-def try_pillow() -> bool:
+def from_b64() -> bool:
+    data_path = ROOT / "app.ico.b64"
+    if not data_path.exists():
+        return False
+    (ROOT / "app.ico").write_bytes(base64.b64decode(data_path.read_text().strip()))
+    return True
+
+
+def from_pillow() -> bool:
     try:
         from PIL import Image, ImageDraw
-        import struct, io
+        import struct
+        import io
     except ImportError:
         return False
 
@@ -32,20 +31,31 @@ def try_pillow() -> bool:
         accent = (88, 166, 255, 255)
         green = (63, 185, 80, 255)
         amber = (210, 153, 34, 255)
-        d.rounded_rectangle([margin, margin, size - margin - 1, size - margin - 1],
-                            radius=max(2, size // 5), fill=bg)
-        d.rounded_rectangle([margin, margin, size - margin - 1, margin + max(4, size // 4)],
-                            radius=max(2, size // 8), fill=accent)
+        d.rounded_rectangle(
+            [margin, margin, size - margin - 1, size - margin - 1],
+            radius=max(2, size // 5),
+            fill=bg,
+        )
+        d.rounded_rectangle(
+            [margin, margin, size - margin - 1, margin + max(4, size // 4)],
+            radius=max(2, size // 8),
+            fill=accent,
+        )
         y0 = size // 2 + max(2, size // 16)
         for i, col in enumerate([accent, green, amber]):
             y = y0 + i * max(4, size // 8)
             th = max(2, size // 14)
             if y + th < size - margin:
-                d.rounded_rectangle([size // 4, y, size - size // 4, y + th],
-                                    radius=max(1, th // 2), fill=col)
+                d.rounded_rectangle(
+                    [size // 4, y, size - size // 4, y + th],
+                    radius=max(1, th // 2),
+                    fill=col,
+                )
         r = max(2, size // 12)
-        d.ellipse([size - margin - 2 * r - 1, margin + 2, size - margin - 1, margin + 2 + 2 * r],
-                  fill=green)
+        d.ellipse(
+            [size - margin - 2 * r - 1, margin + 2, size - margin - 1, margin + 2 + 2 * r],
+            fill=green,
+        )
         return img
 
     sizes = [16, 32, 48, 64, 128, 256]
@@ -70,17 +80,17 @@ def try_pillow() -> bool:
     make_icon(256).save(ROOT / "app.png")
     return True
 
-def main():
-    if try_pillow():
-        print("OK generated with Pillow:", ROOT / "app.ico")
+
+def main() -> None:
+    if from_b64():
+        print("OK", ROOT / "app.ico")
         return
-    data_path = ROOT / "app.ico.b64"
-    if data_path.exists():
-        p = write_embedded()
-        print("OK wrote embedded icon:", p)
+    if from_pillow():
+        print("OK generated", ROOT / "app.ico")
         return
-    print("Need Pillow once: pip install pillow && python assets/generate_icon.py", file=sys.stderr)
+    print("Missing app.ico.b64 and Pillow.", file=sys.stderr)
     sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
