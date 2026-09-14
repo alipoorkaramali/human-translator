@@ -4,6 +4,7 @@
 # ============================================================
 
 $script:HT_ImageName = "text-processor"
+$script:HT_DockerExe = $null
 
 function Get-HTPaths {
     $scriptDir = $PSScriptRoot
@@ -72,19 +73,91 @@ function Get-DockerPath([string]$Path) {
     return ($Path -replace '\\', '/')
 }
 
+function Resolve-HTDockerExe {
+    if ($script:HT_DockerExe -and (Test-Path $script:HT_DockerExe)) {
+        return $script:HT_DockerExe
+    }
+
+    $cmd = Get-Command docker -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source) {
+        $script:HT_DockerExe = $cmd.Source
+        return $script:HT_DockerExe
+    }
+
+    $candidates = @(
+        "$env:ProgramFiles\Docker\Docker\resources\bin\docker.exe",
+        "${env:ProgramFiles(x86)}\Docker\Docker\resources\bin\docker.exe",
+        "$env:LOCALAPPDATA\Programs\Docker\Docker\resources\bin\docker.exe",
+        "$env:ProgramFiles\Docker\Docker\DockerCli.exe"
+    )
+    foreach ($p in $candidates) {
+        if ($p -and (Test-Path $p)) {
+            $script:HT_DockerExe = $p
+            return $script:HT_DockerExe
+        }
+    }
+    return $null
+}
+
+function Get-HTDockerStatus {
+    # Returns: @{ Ok = $bool; Reason = $string; Exe = $string }
+    $exe = Resolve-HTDockerExe
+    if (-not $exe) {
+        return @{
+            Ok = $false
+            Reason = "docker.exe not found in PATH or default install folders. Install Docker Desktop."
+            Exe = $null
+        }
+    }
+
+    try {
+        $ver = & $exe --version 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            return @{ Ok = $false; Reason = "docker --version failed: $ver"; Exe = $exe }
+        }
+    } catch {
+        return @{ Ok = $false; Reason = "Cannot run docker.exe: $($_.Exception.Message)"; Exe = $exe }
+    }
+
+    try {
+        $info = & $exe info 2>&1 | Out-String
+        if ($LASTEXITCODE -ne 0) {
+            $hint = "Docker Desktop is installed but the engine is not running."
+            if ($info -match "pipe|named pipe|cannot connect|error during connect|dockerDesktopLinuxEngine") {
+                $hint = "Docker Desktop engine is not running. Open Docker Desktop and wait until status is Running."
+            }
+            return @{ Ok = $false; Reason = $hint; Exe = $exe }
+        }
+    } catch {
+        return @{
+            Ok = $false
+            Reason = "Docker engine not reachable. Start Docker Desktop and wait until it is fully Running."
+            Exe = $exe
+        }
+    }
+
+    return @{ Ok = $true; Reason = "OK"; Exe = $exe }
+}
+
 function Test-HTDocker {
     param($Paths)
-    try {
-        docker --version 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) { return $false }
-        docker info 2>&1 | Out-Null
-        return ($LASTEXITCODE -eq 0)
-    } catch { return $false }
+    $st = Get-HTDockerStatus
+    return [bool]$st.Ok
+}
+
+function Invoke-HTDocker {
+    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$DockerArgs)
+    $exe = Resolve-HTDockerExe
+    if (-not $exe) { $exe = "docker" }
+    & $exe @DockerArgs
+    return $LASTEXITCODE
 }
 
 function Test-HTImage {
     param($Paths)
-    $id = docker images -q $Paths.ImageName 2>$null
+    $exe = Resolve-HTDockerExe
+    if (-not $exe) { return $false }
+    $id = & $exe images -q $Paths.ImageName 2>$null
     return [bool]$id
 }
 
@@ -158,7 +231,12 @@ function Invoke-HTProcessFile {
         $dockerSrcPath  = Get-DockerPath $Paths.SrcDir
         $containerInput = "data/input/$fileName"
 
-        # Mount src + Book1 so rule/data changes apply without image rebuild.
+        $exe = Resolve-HTDockerExe
+        if (-not $exe) {
+            Write-HTLog "docker.exe not found" "ERROR" $Paths
+            return $false
+        }
+
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
         $dockerArgs = @(
             "run", "--rm",
@@ -169,7 +247,7 @@ function Invoke-HTProcessFile {
             $containerInput
         )
 
-        $output = & docker @dockerArgs 2>&1
+        $output = & $exe @dockerArgs 2>&1
         $exitCode = $LASTEXITCODE
         $sw.Stop()
 
