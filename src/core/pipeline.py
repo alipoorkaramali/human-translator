@@ -70,32 +70,15 @@ class Pipeline:
         return tokens
 
     def _record_seed_trace(self) -> None:
-        """Log initial labels from tokenizer as phase=init / rule=seed."""
-        from .label_trace import FieldChange, TraceEvent
-
+        """Remember seed labels as setters only — not listed as conflicts."""
         tr = self.processor.tracer
         tr.clear()
-        for tok in self.processor.tokens:
-            changes = []
+        for i, tok in enumerate(self.processor.tokens):
             if tok.label:
-                changes.append(FieldChange("label", "", tok.label, "SET"))
-            if tok.subtype:
-                changes.append(FieldChange("subtype", "", tok.subtype, "SET"))
-            if tok.role and tok.role != "unknown":
-                changes.append(FieldChange("role", "unknown", tok.role, "SET"))
-            if not changes:
-                continue
-            tr._step += 1
-            tr.events.append(
-                TraceEvent(
-                    step=tr._step,
-                    phase="init",
-                    rule="seed",
-                    token_index=tok.index,
-                    word=tok.word,
-                    changes=changes,
+                tr._last_setter[(i, "label")] = "seed"
+                tr._label_hist.setdefault((i, tok.word), []).append(
+                    ("seed", tok.label)
                 )
-            )
 
     def run(self, text: str, output_file: str = None) -> pd.DataFrame:
         self.processor.tokens = self._initial_tokenize(text)
@@ -113,7 +96,7 @@ class Pipeline:
         path_xlsx: str = None,
         source_name: str = "",
     ) -> None:
-        """Write label/rule audit trail for the last run()."""
+        """Write label/rule conflict audit for the last run()."""
         self.processor.save_trace(
             path_txt, path_xlsx=path_xlsx, source_name=source_name
         )
