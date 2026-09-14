@@ -5,23 +5,42 @@
 ## ویژگی‌ها
 - برچسب‌زنی دقیق m1 (determiner/quantifier)، m2 (adjective)، adv، N، V و ...
 - پشتیبانی از کسرها، اعداد مرکب، عبارات چندکلمه‌ای
-- اجرای آفلاین با داکر (داده‌های NLTQ درون ایمیج)
+- اجرای آفلاین با داکر (داده‌های NLTK درون ایمیج)
 
 ## ساختار پروژه
 
 - `src/core/` : هستهٔ سیستم (Token, Context, Rule, Processor, Pipeline)
-- `src/core/importers/` : چهار واردکننده
-  - `data_importer.py` → Book1.xlsx + NLTK
-  - `m1_importer.py`   → قوانین m1
-  - `m2_m5_importer.py` → قوانین m2 تا m5
-  - `special_checker.py` → حالت‌های خاص
+- `src/core/importers/` : واردکننده‌ها (Excel، قوانین NP/VP)
 - `src/rules/` : پیاده‌سازی قوانین به‌صورت Rule Class
 - `src/utils.py` : ابزارهای عمومی
 - `data/` : ورودی/خروجی
-- `docker/` : Dockerfile
+- `docker/` : Dockerfile و Dockerfile.offline
+- `scripts/` : setup/watch ویندوز + دانلود NLTK
 - `Book1.xlsx` : مجموعه‌های کلمات
+
 ## نحوه اجرا با داکر
 
-### ۱. ساخت ایمیج
+### ۱. ساخت ایمیج (آنلاین / عادی)
 ```bash
 docker build -f docker/Dockerfile -t text-processor .
+```
+
+### ۲. ساخت ایمیج آفلاین (NLTK داخل ایمیج)
+```bash
+docker build -f docker/Dockerfile.offline -t text-processor .
+```
+
+### ۳. اجرا
+```bash
+docker run --rm -v "$PWD/data:/app/data" -v "$PWD/Book1.xlsx:/app/Book1.xlsx" text-processor data/input/test.txt
+```
+
+## اجرای آفلاین روی ویندوز
+
+دستورالعمل کامل: **[WINDOWS.md](WINDOWS.md)**
+
+خلاصه:
+
+1. `setup.bat` (یک‌بار)
+2. `watch.bat` یا `process.bat`
+3. فایل `.txt` را در `data/input` بگذار → خروجی در `data/output`

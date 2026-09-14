@@ -42,7 +42,8 @@ htmlcov/
 pip-wheel-metadata/
 
 # ---------- NLTK data ----------
-nltk_data/
+# برای Dockerfile.offline لازم است — ignore نکن
+# nltk_data/
 
 # ---------- Project data ----------
 data/output/
@@ -90,6 +91,8 @@ setup.py
 setup.cfg
 pyproject.toml
 Makefile
+WINDOWS.md
+*.bat
 
 # ⚠️ توجه: اینها را ignore نکن:
 #   - scripts/         (Dockerfile از آن استفاده میکند)
@@ -97,3 +100,4 @@ Makefile
 #   - requirements.txt (Dockerfile COPY میکند)
 #   - Book1.xlsx       (Dockerfile COPY میکند، با !Book1.xlsx استثنا شده)
 #   - src/             (کد اصلی)
+#   - nltk_data/       (Dockerfile.offline نیاز دارد)
