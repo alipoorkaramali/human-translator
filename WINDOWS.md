@@ -27,48 +27,32 @@
 دوبار کلیک → start.bat  ← سپس Setup
 ```
 
-یا مستقیم `setup.bat`.
+## پردازش خودکار با Save
 
-چه کار می‌کند؟
+1. **`watch.bat`** را باز بگذار (یا از GUI دکمه **Watch (auto on Save)**)
+2. هر فایل `.txt` را در `data\input` **ذخیره (Ctrl+S)** کن
+3. خودکار پردازش می‌شود → `data\output\output_<نام>.xlsx`
 
-- چک Docker / Book1 / nltk_data  
-- ساخت ایمیج `text-processor` از `docker/Dockerfile.offline`  
-- **Smoke test** خودکار روی یک جمله نمونه  
-
-ساخت مجدد:
+نیازی به کلیک Process برای هر فایل نیست.
 
 ```bat
-powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Rebuild
+watch.bat                  # فقط فایل‌های جدید/تغییریافته
+watch.bat -ProcessExisting # + فایل‌هایی که از قبل در input هستند
+watch.bat -OpenExcel       # بعد از هر پردازش Excel را باز کن
 ```
 
-## استفاده
+## استفاده دستی
 
 | فایل | کار |
 |------|-----|
-| **start.bat** | داشبورد گرافیکی (پیشنهادی) |
-| **watch.bat** | رصد `data\input` در کنسول |
-| **process.bat** | پردازش یک‌بار همه فایل‌ها |
+| **start.bat** | داشبورد گرافیکی |
+| **watch.bat** | رصد خودکار input |
+| **process.bat** | یک‌بار همه فایل‌های input |
 
 خروجی: `data\output\output_<نام>.xlsx`  
 لاگ: `data\output\processor.log`
 
-### باز کردن Excel
-
-در GUI با چک‌باکس، یا:
-
-```bat
-watch.bat -OpenExcel
-```
-
-یا در `scripts\windows-config.psd1`:
-
-```powershell
-OpenExcel = $true
-```
-
 ## تغییر قوانین بدون rebuild
-
-اسکریپت‌های ویندوز این مسیرها را **live mount** می‌کنند:
 
 | میزبان | داخل کانتینر |
 |--------|----------------|
@@ -76,22 +60,18 @@ OpenExcel = $true
 | `Book1.xlsx` | `/app/Book1.xlsx` |
 | `data/` | `/app/data` |
 
-یعنی:
+قانون یا اکسل را عوض کن → Save → Process/Watch بعدی همان را می‌بیند.  
+فقط برای تغییر `requirements` / NLTK / spaCy → `setup.ps1 -Rebuild`.
 
-- قانون جدید در `src/rules/...` → ذخیره → **Process بعدی** همان کد را می‌بیند  
-- کلمهٔ جدید در اکسل → **بدون** `setup -Rebuild`  
-- فقط وقتی `requirements` / NLTK / spaCy عوض شد → **Rebuild**
-
-## پیکربندی
-
-فایل: `scripts/windows-config.psd1`
+## پیکربندی (`scripts/windows-config.psd1`)
 
 | کلید | پیش‌فرض | معنی |
 |------|---------|------|
 | OpenExcel | false | باز کردن Excel بعد از پردازش |
 | OpenFolder | true | باز کردن پوشه خروجی بعد از process |
-| DebounceMs | 800 | صبر قبل از پردازش |
-| PollMs | 800 | فاصله بررسی پوشه |
+| DebounceMs | 900 | صبر بعد از Save تا ادیتور نوشتن را تمام کند |
+| PollMs | 1000 | پشتیبان polling |
+| ProcessExistingOnStart | false | در شروع watch فایل‌های موجود را هم پردازش کن |
 | SmokeTest | true | تست بعد از setup |
 
 ## اگر PowerShell خطا داد
@@ -99,11 +79,3 @@ OpenExcel = $true
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
-
-## نکات حرفه‌ای
-
-- قفل فایل (`.locks`) جلوی پردازش همزمان یک فایل را می‌گیرد  
-- فایل‌های `~*` و خالی نادیده گرفته می‌شوند  
-- مسیرها پرتابل‌اند  
-- runtime بعد از setup آفلاین است  
-- اگر `assets/app.ico` بگذاری، آیکون پنجره GUI عوض می‌شود  
