@@ -269,7 +269,11 @@ function Invoke-HTProcessFile {
         foreach ($line in $output) {
             $s = ("$line").Trim()
             if (-not $s) { continue }
-            if ($s -match "(?i)error|traceback|exception|failed") {
+            if ($s -match "TRACE_OK|TRACE_XLSX_OK|TRACE_FALLBACK") {
+                Write-HTLog $s "OK" $Paths
+            } elseif ($s -match "TRACE_FAIL") {
+                Write-HTLog $s "ERROR" $Paths
+            } elseif ($s -match "(?i)error|traceback|exception|failed") {
                 if ($s -notmatch "(?i)deprecated|warning") {
                     Write-HTLog $s "ERROR" $Paths
                 }
@@ -286,6 +290,17 @@ function Invoke-HTProcessFile {
             Write-HTLog ("Excel updated: output_" + $baseName + ".xlsx (" + $sec + "s)") "OK" $Paths
             if (Test-Path -LiteralPath $newTxt) {
                 Write-HTLog ("Summary saved: output_" + $baseName + ".txt") "INFO" $Paths
+            }
+
+            $traceTxt = Join-Path $Paths.OutputDir ("output_" + $baseName + "_trace.txt")
+            $traceXlsx = Join-Path $Paths.OutputDir ("output_" + $baseName + "_trace.xlsx")
+            if (Test-Path -LiteralPath $traceTxt) {
+                Write-HTLog ("Trace path: output_" + $baseName + "_trace.txt") "OK" $Paths
+            } else {
+                Write-HTLog ("Trace MISSING: output_" + $baseName + "_trace.txt - git pull + Rebuild Image (src may be old)") "WARN" $Paths
+            }
+            if (Test-Path -LiteralPath $traceXlsx) {
+                Write-HTLog ("Trace Excel: output_" + $baseName + "_trace.xlsx") "OK" $Paths
             }
 
             $shouldOpen = $OpenExcel -or ($Config -and $Config.OpenExcel)
