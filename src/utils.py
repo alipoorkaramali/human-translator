@@ -78,37 +78,25 @@ PUNCTUATION = {".", ",", "!", "?", ";", ":", "…", "—", "–",
 
 _STRONG_STOP = {".", "!", "?", ";", ":", "—"}
 
-# صفات ملکی (قبل از اسم): my book
 _POSSESSIVE_ADJECTIVES = {
     'my', 'your', 'his', 'her', 'its', 'our', 'their',
 }
 
-# ضمایر ملکی مستقل / جانشین NP: This is mine.
 _POSSESSIVE_PRONOUNS = {
     'mine', 'yours', 'hers', 'ours', 'theirs',
 }
 
-# اتحاد برای تشخیص «ملکی در NP» (بلاک‌ها و is_possessive_or_s)
 _PRONOUN_POSSESSIVES = _POSSESSIVE_ADJECTIVES | _POSSESSIVE_PRONOUNS
 
-# ---------------------------------------------------------------------------
-# حروف اضافه — منبع پیش‌فرض مرز NP (قابل گسترش از Excel / data/prepositions.txt)
-# of و as هرگز مرز NP نیستند (قانون ض / of-quantifier).
-# ---------------------------------------------------------------------------
-DEFAULT_PREPOSITIONS = {
-    'in', 'on', 'at', 'by', 'with', 'from', 'to', 'for', 'about',
-    'under', 'over', 'between', 'among', 'amongst', 'during', 'before',
-    'after', 'since', 'until', 'till', 'into', 'onto', 'upon',
-    'across', 'through', 'along', 'around', 'round', 'near', 'beside',
-    'besides', 'behind', 'beyond', 'inside', 'outside', 'above', 'below',
-    'beneath', 'within', 'without', 'against', 'toward', 'towards',
-    'via', 'per', 'plus', 'minus', 'unlike', 'like', 'except', 'despite',
-    'throughout', 'underneath', 'amid', 'amidst', 'atop',
-    'up', 'down', 'off', 'out', 'past', 'next',
-}
-
-# حتی اگر در Excel بیایند، مرز NP نمی‌شوند
-_NEVER_NP_BOUNDARY_PREPS = frozenset({'of', 'as'})
+# مرز NP — تنها منبع: src/np_boundary.py
+from src.np_boundary import (  # noqa: E402
+    DEFAULT_PREPOSITIONS,
+    NEVER_NP_BOUNDARY_PREPS as _NEVER_NP_BOUNDARY_PREPS,
+    NP_BOUNDARY_PUNCT,
+    NP_BOUNDARY_CONJUNCTIONS,
+    EXTRA_NP_BOUNDARY_WORDS,
+    is_np_boundary,
+)
 
 def is_punctuation(token):
     return token in PUNCTUATION
@@ -169,45 +157,6 @@ def possessive_before_index(sequence, idx, max_lookback=15) -> bool:
 
     return False
 
-
-def is_np_boundary(token, preposition_set=None):
-    """
-    مرز گروه اسمی (NP boundary).
-
-    of و as هرگز مرز نیستند (حتی اگر در preposition_set باشند).
-    """
-    if not token:
-        return False
-    t = str(token).lower()
-    if hasattr(token, "word"):
-        t = str(token.word).lower()
-
-    if " " in t:
-        return False
-
-    if t in {".", "!", "?", ";", ":", "—", ","}:
-        return True
-    if re.search(r'[.!?;:—]$', t):
-        return True
-
-    if t in _NEVER_NP_BOUNDARY_PREPS:
-        return False
-
-    preps = preposition_set if preposition_set is not None else DEFAULT_PREPOSITIONS
-    if t in preps:
-        return True
-
-    if t in {'and', 'but', 'or', 'nor', 'yet', 'so'}:
-        return True
-    if t in {")", "]", "}", '"', "'"}:
-        return True
-    try:
-        syns = wn.synsets(t)
-        if syns and syns[0].pos() == 'v':
-            return True
-    except LookupError:
-        pass
-    return False
 
 def is_cardinal_word(word, cardinal_numbers):
     w = word.lower()
