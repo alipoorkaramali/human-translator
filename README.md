@@ -21,13 +21,13 @@ Tags determiners, quantifiers, numbers, adjectives, adverbs, nouns, and verbs wi
 
 1. Install & start [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 2. Clone / pull this repo
-3. Double-click **`start.bat`**
+3. Double-click **`start.bat`** (or `windows\start.bat`)
 4. Click **Setup** once (builds offline image + smoke test)
 5. Drop a `.txt` file into `data/input` → **Process** or **Watch**
 
 Outputs land in `data/output/output_<name>.xlsx`.
 
-Full Windows guide: **[WINDOWS.md](WINDOWS.md)**
+Full Windows guide: **[docs/WINDOWS.md](docs/WINDOWS.md)**
 
 ---
 
@@ -104,22 +104,18 @@ With the default Windows/CLI mounts, **`src/` is bind-mounted into the container
 
 ```text
 human-translator/
-├── start.bat / setup.bat / watch.bat / process.bat
-├── WINDOWS.md
-├── Book1.xlsx
-├── src/
-│   ├── main.py
-│   ├── ht_token.py
-│   ├── utils.py
-│   ├── core/           # pipeline, processor, context, importers
-│   └── rules/          # np/ + vp/ rule modules
-├── data/input/         # drop .txt here
-├── data/output/        # Excel + logs
-├── docker/
-│   ├── Dockerfile
-│   └── Dockerfile.offline
-├── scripts/            # PowerShell automation + GUI
-└── assets/             # app icon
+├── start.bat / setup.bat / watch.bat / process.bat   # shortcuts → windows/
+├── windows/              # Windows launchers (start, setup, watch, process)
+├── scripts/              # PowerShell: GUI, setup, watch, common
+├── docs/WINDOWS.md       # Windows offline guide
+├── docker/               # Dockerfile + Dockerfile.offline
+├── src/                  # Python tagger (rules, pipeline)
+├── data/input|output/    # runtime files
+├── assets/               # icon generator
+├── tests/
+├── Book1.xlsx            # lexicon (root — Docker/CI)
+├── requirements.txt
+└── Makefile
 ```
 
 ---
