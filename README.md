@@ -15,7 +15,7 @@
 - `src/utils.py` : ابزارهای عمومی
 - `data/` : ورودی/خروجی
 - `docker/` : Dockerfile و Dockerfile.offline
-- `scripts/` : setup/watch ویندوز + دانلود NLTK
+- `scripts/` : setup/watch ویندوز + داشبورد GUI + دانلود NLTK
 - `Book1.xlsx` : مجموعه‌های کلمات
 
 ## نحوه اجرا با داکر
@@ -41,6 +41,6 @@ docker run --rm -v "$PWD/data:/app/data" -v "$PWD/Book1.xlsx:/app/Book1.xlsx" te
 
 خلاصه:
 
-1. `setup.bat` (یک‌بار)
-2. `watch.bat` یا `process.bat`
+1. **`start.bat`** — داشبورد گرافیکی (پیشنهادی)
+2. یا `setup.bat` سپس `watch.bat` / `process.bat`
 3. فایل `.txt` را در `data/input` بگذار → خروجی در `data/output`

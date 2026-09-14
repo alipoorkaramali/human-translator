@@ -2,6 +2,19 @@
 
 با **Docker Desktop** بعد از یک‌بار ساخت ایمیج، بدون اینترنت پردازش کن.
 
+## داشبورد گرافیکی (پیشنهادی)
+
+دوبار کلیک روی **`start.bat`**
+
+- تم تیره، دکمه‌های Setup / Watch / Process
+- وضعیت Docker و ایمیج در نوار پایین
+- باز کردن پوشه ورودی/خروجی و لاگ
+- گزینه «باز کردن Excel»
+
+نیازی به نصب برنامه اضافه نیست (WinForms داخلی ویندوز).
+
+---
+
 ## پیش‌نیاز
 
 1. [Docker Desktop](https://www.docker.com/products/docker-desktop/) روشن باشد  
@@ -11,8 +24,10 @@
 ## بار اول
 
 ```text
-دوبار کلیک → setup.bat
+دوبار کلیک → start.bat  ← سپس Setup
 ```
+
+یا مستقیم `setup.bat`.
 
 چه کار می‌کند؟
 
@@ -30,15 +45,16 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Rebuild
 
 | فایل | کار |
 |------|-----|
-| **watch.bat** | رصد `data\input`؛ هر `.txt` جدید/تغییریافته → پردازش |
-| **process.bat** | همه `.txt`ها را یک‌بار پردازش می‌کند |
+| **start.bat** | داشبورد گرافیکی (پیشنهادی) |
+| **watch.bat** | رصد `data\input` در کنسول |
+| **process.bat** | پردازش یک‌بار همه فایل‌ها |
 
 خروجی: `data\output\output_<نام>.xlsx`  
 لاگ: `data\output\processor.log`
 
 ### باز کردن Excel
 
-پیش‌فرض **خاموش** است. برای روشن کردن:
+در GUI با چک‌باکس، یا:
 
 ```bat
 watch.bat -OpenExcel
@@ -58,7 +74,7 @@ OpenExcel = $true
 |------|---------|------|
 | OpenExcel | false | باز کردن Excel بعد از پردازش |
 | OpenFolder | true | باز کردن پوشه خروجی بعد از process |
-| DebounceMs | 800 | صبر قبل از پردازش (جلوگیری از Save نصفه) |
+| DebounceMs | 800 | صبر قبل از پردازش |
 | PollMs | 800 | فاصله بررسی پوشه |
 | SmokeTest | true | تست بعد از setup |
 
@@ -72,5 +88,6 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 - قفل فایل (`.locks`) جلوی پردازش همزمان یک فایل را می‌گیرد  
 - فایل‌های `~*` و خالی نادیده گرفته می‌شوند  
-- مسیرها با `$PSScriptRoot` پرتابل‌اند  
-- ایمیج فقط هنگام setup به اینترنت نیاز دارد؛ runtime آفلاین است  
+- مسیرها پرتابل‌اند  
+- runtime بعد از setup آفلاین است  
+- اگر `assets/app.ico` بگذاری، آیکون پنجره GUI عوض می‌شود  
