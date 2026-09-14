@@ -23,14 +23,34 @@ def _process_one(pipe, input_path, output_dir):
     output_trace_txt = os.path.join(output_dir, f"output_{base}_trace.txt")
     output_trace_xlsx = os.path.join(output_dir, f"output_{base}_trace.xlsx")
     try:
+        # text first (always useful even if Excel fails)
         pipe.save_trace(
             output_trace_txt,
-            path_xlsx=output_trace_xlsx,
+            path_xlsx=None,
             source_name=input_path,
         )
-        logging.info("Trace -> %s", output_trace_txt)
+        logging.info("TRACE_OK %s", output_trace_txt)
+        try:
+            pipe.save_trace(
+                output_trace_txt,
+                path_xlsx=output_trace_xlsx,
+                source_name=input_path,
+            )
+            logging.info("TRACE_XLSX_OK %s", output_trace_xlsx)
+        except Exception as exc_x:
+            logging.warning("Trace xlsx failed (txt kept): %s", exc_x)
     except Exception as exc:
-        logging.warning("Trace write failed: %s", exc)
+        logging.error("TRACE_FAIL %s: %s", output_trace_txt, exc)
+        try:
+            with open(output_trace_txt, "w", encoding="utf-8") as fh:
+                fh.write(
+                    f"LABEL TRACE FALLBACK\nSource: {input_path}\n"
+                    f"Error while building full trace: {exc}\n"
+                    f"Tokens in result: {len(df)}\n"
+                )
+            logging.info("TRACE_FALLBACK_OK %s", output_trace_txt)
+        except Exception as exc2:
+            logging.error("Could not write fallback trace: %s", exp2 if False else exc2)
 
     summary = (
         f"File: {input_path}\n"
