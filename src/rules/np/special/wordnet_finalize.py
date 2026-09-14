@@ -55,11 +55,9 @@ class WordNetFinalizeRule(Rule):
                 tok.role = "determiner/quantifier"
                 changed = True
 
-            # ordinal را TheOrdinalRule مدیریت می‌کند
             if tok.subtype == "ordinal":
                 continue
 
-        # intensifierها
         for tok in tokens:
             if tok.locked:
                 continue
@@ -68,8 +66,10 @@ class WordNetFinalizeRule(Rule):
                     tok.label = "adv"
                     tok.role = "adverb (intensifier)"
                     changed = True
+                if not tok.locked:
+                    tok.locked = True
+                    changed = True
 
-        # more/most → adv فقط اگر m1 قبلش در NP نباشد
         for i in range(len(tokens) - 1):
             tok = tokens[i]
             if tok.locked or tok.word.lower() not in ("more", "most"):
@@ -110,7 +110,7 @@ class WordNetFinalizeRule(Rule):
                     tok.label = ""
                     tok.role = "preposition"
                     changed = True
-            elif re.match(r"^[^\w\s]$", tok.word):
+            elif re.match(r"[^\w\s]$", tok.word):
                 if tok.role != "punctuation":
                     tok.role = "punctuation"
                     changed = True
