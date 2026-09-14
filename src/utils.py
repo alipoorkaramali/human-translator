@@ -78,10 +78,18 @@ PUNCTUATION = {".", ",", "!", "?", ";", ":", "…", "—", "–",
 
 _STRONG_STOP = {".", "!", "?", ";", ":", "—"}
 
-_PRONOUN_POSSESSIVES = {
+# صفات ملکی (قبل از اسم): my book
+_POSSESSIVE_ADJECTIVES = {
     'my', 'your', 'his', 'her', 'its', 'our', 'their',
+}
+
+# ضمایر ملکی مستقل / جانشین NP: This is mine.
+_POSSESSIVE_PRONOUNS = {
     'mine', 'yours', 'hers', 'ours', 'theirs',
 }
+
+# اتحاد برای تشخیص «ملکی در NP» (بلاک‌ها و is_possessive_or_s)
+_PRONOUN_POSSESSIVES = _POSSESSIVE_ADJECTIVES | _POSSESSIVE_PRONOUNS
 
 # ---------------------------------------------------------------------------
 # حروف اضافه — منبع پیش‌فرض مرز NP (قابل گسترش از Excel / data/prepositions.txt)
@@ -108,11 +116,18 @@ def is_punctuation(token):
 def is_and_word(word):
     return word.lower() == 'and'
 
-def is_possessive_pronoun(word):
-    """فقط ضمیر ملکی (my/his/…) — نه students'."""
+def is_possessive_adjective(word):
+    """صفت ملکی determiner: my/your/his/… — نه mine و نه students'."""
     if not word:
         return False
-    return str(word).lower().strip() in _PRONOUN_POSSESSIVES
+    return str(word).lower().strip() in _POSSESSIVE_ADJECTIVES
+
+
+def is_possessive_pronoun(word):
+    """ضمیر ملکی مستقل / جانشین NP: mine/yours/hers/ours/theirs."""
+    if not word:
+        return False
+    return str(word).lower().strip() in _POSSESSIVE_PRONOUNS
 
 def is_possessive_or_s(word):
     if not word:
