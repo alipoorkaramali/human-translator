@@ -12,7 +12,7 @@ Tags determiners, quantifiers, numbers, adjectives, adverbs, nouns, and verbs wi
 |------|----------|
 | **Deterministic** | Explicit priority-ordered rules, not a black-box model |
 | **Offline** | One Docker image build; runtime needs no network |
-| **Extensible** | Add/edit a rule class → mount `src/` → next run uses it |
+| **Extensible** | Drop a rule file under `src/rules/` → auto-registered |
 | **Windows-friendly** | GUI dashboard + watch folder for `.txt` → Excel |
 
 ---
@@ -63,40 +63,35 @@ text
 | `src/ht_token.py` | Token: word, label, subtype, role, lock, NP spans |
 | `src/core/pipeline.py` | Orchestrates phases |
 | `src/core/processor.py` | Runs rules by priority until stable |
-| `src/rules/np/**` | NP rules (articles, compounds, ordinals, possessives, …) |
-| `src/rules/vp/**` | VP rules |
-| `Book1.xlsx` | Lexical sets (articles, compounds, ordinals, possessives, …) |
-
-Rules are plain Python classes (`Rule`) with `priority` and `apply(tokens, ctx)`.
+| `src/rules/np/**` | NP rules (auto-discovered) |
+| `src/rules/vp/**` | VP rules (auto-discovered) |
+| `Book1.xlsx` | Lexical sets |
 
 ---
 
-## Extending rules (yes — you can)
+## Extending rules
 
-You can **add, remove, or change rules anytime**. Nothing breaks if you follow the pattern.
+### 1. Lexicon only
 
-### 1. Lexicon only (no code)
+Edit **`Book1.xlsx`** columns. No rebuild.
 
-Edit **`Book1.xlsx`** columns (`compound`, `ordinal`, `possessive`, …).  
-Already mounted at runtime → **next process uses the new lists**. No rebuild.
+### 2. New rule code
 
-### 2. New / changed rule code
+1. Add a file under `src/rules/np/...` or `src/rules/vp/...` (class inheriting `Rule`)
+2. Save — **auto-discovery registers it** (no importer edit)
 
-1. Add or edit a file under `src/rules/...`
-2. Register it in `src/core/importers/np_importer.py` (or VP importer)
-3. Save
+Default mounts bind **`src/`** into the container → **no Docker rebuild** for rule logic.
 
-With the default Windows/CLI mounts, **`src/` is bind-mounted into the container**.  
-→ **No Docker rebuild required** for rule logic changes.
+Details: **[docs/ADDING_RULES.md](docs/ADDING_RULES.md)**
 
-### 3. When you *do* need rebuild (`scripts\setup.ps1 -Rebuild`)
+### 3. When you need rebuild
 
 | Change | Rebuild? |
 |--------|----------|
-| Rule Python code | **No** (live `src` mount) |
-| `Book1.xlsx` | **No** (live mount) |
-| `requirements.txt` / spaCy / NLTK data | **Yes** |
-| Base Dockerfile | **Yes** |
+| Rule Python code | **No** |
+| `Book1.xlsx` | **No** |
+| `requirements.txt` / spaCy / NLTK | **Yes** |
+| Dockerfile | **Yes** |
 
 ---
 
@@ -104,16 +99,15 @@ With the default Windows/CLI mounts, **`src/` is bind-mounted into the container
 
 ```text
 human-translator/
-├── windows/              # launchers only (start, setup, watch, process)
-├── scripts/              # PowerShell: GUI, setup, watch, common
-├── docs/WINDOWS.md       # Windows offline guide
-├── docker/               # Dockerfile + Dockerfile.offline
-├── src/                  # Python tagger (rules, pipeline)
-├── data/input|output/    # runtime files
-├── assets/               # icon generator
+├── windows/              # launchers (start, setup, watch, process)
+├── scripts/              # PowerShell GUI / automation
+├── docs/                 # WINDOWS.md, ADDING_RULES.md
+├── docker/
+├── src/                  # tagger + rules (auto-discovered)
+├── data/input|output/
+├── assets/
 ├── tests/
-├── Book1.xlsx            # lexicon (root — Docker/CI)
-├── requirements.txt
+├── Book1.xlsx
 └── Makefile
 ```
 
@@ -125,8 +119,8 @@ human-translator/
 |-------|-------------|
 | `m1` | Determiner / quantifier / NP-substitute possessives |
 | `m2` | Adjective |
-| `m3` | Genitive `'s` (noun-side) |
-| `m4` | Post-nominal number (after N in NP) |
+| `m3` | Genitive `'s` |
+| `m4` | Post-nominal number |
 | `N` / `V` / `adv` | Noun / verb / adverb |
 
 **Subtypes** on `m1`: `cardinal`, `ordinal`, `possessive adj`, `possessive pronoun`, …
@@ -137,12 +131,10 @@ human-translator/
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
 python -m src.main data/input/test.txt
 ```
-
-Tests: see `tests/` and CI under `.github/workflows/`.
 
 ---
 
