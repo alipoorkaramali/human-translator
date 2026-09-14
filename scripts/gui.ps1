@@ -1,7 +1,6 @@
 # ============================================================
 # gui.ps1 - Text Processor dashboard (WinForms)
-# No extra deps - Windows built-in .NET only
-# ASCII-only UI strings (safe for Windows PowerShell 5.1)
+# Live progress in status panel (no silent freeze)
 # ============================================================
 
 $ErrorActionPreference = "Stop"
@@ -63,6 +62,7 @@ function Append-Status {
     $statusBox.AppendText("$line`r`n")
     $statusBox.SelectionStart = $statusBox.Text.Length
     $statusBox.ScrollToCaret()
+    [System.Windows.Forms.Application]::DoEvents()
     try { Write-HTLog $Msg $Level $Paths } catch { }
 }
 
@@ -112,9 +112,54 @@ function Start-HTJob {
     }
 }
 
+function Wait-HTProcessLive {
+    param(
+        [System.Diagnostics.Process]$Process,
+        [string]$Activity,
+        [string]$LogPath = $null
+    )
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $lastLogLen = 0
+    if ($LogPath -and (Test-Path $LogPath)) {
+        $lastLogLen = (Get-Item $LogPath).Length
+    }
+
+    while (-not $Process.HasExited) {
+        $sec = [int]$sw.Elapsed.TotalSeconds
+        $lblBusy.Text = "$Activity  (${sec}s elapsed - not frozen, please wait)"
+        [System.Windows.Forms.Application]::DoEvents()
+
+        # Stream new log lines into the status panel
+        if ($LogPath -and (Test-Path $LogPath)) {
+            try {
+                $fs = [System.IO.File]::Open($LogPath, 'Open', 'Read', 'ReadWrite')
+                try {
+                    if ($fs.Length -gt $lastLogLen) {
+                        $fs.Seek($lastLogLen, 'Begin') | Out-Null
+                        $sr = New-Object System.IO.StreamReader($fs)
+                        $chunk = $sr.ReadToEnd()
+                        $lastLogLen = $fs.Length
+                        foreach ($ln in ($chunk -split "`r?`n")) {
+                            if ($ln -and $ln.Trim()) {
+                                $clean = $ln -replace '^\[\d{4}-\d{2}-\d{2} [^\]]+\]\s*\[[^\]]+\]\s*', ''
+                                if ($clean.Length -gt 120) { $clean = $clean.Substring(0, 117) + '...' }
+                                Append-Status $clean "INFO"
+                            }
+                        }
+                    }
+                } finally { $fs.Close() }
+            } catch { }
+        }
+
+        Start-Sleep -Milliseconds 400
+    }
+    $Process.WaitForExit() | Out-Null
+    return $Process.ExitCode
+}
+
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Human Translator"
-$form.Size = New-Object System.Drawing.Size(560, 620)
+$form.Size = New-Object System.Drawing.Size(560, 640)
 $form.StartPosition = "CenterScreen"
 $form.BackColor = $bg
 $form.ForeColor = $text
@@ -165,12 +210,12 @@ $lblBusy = New-Object System.Windows.Forms.Label
 $lblBusy.Text = ""
 $lblBusy.ForeColor = $warn
 $lblBusy.Location = New-Object System.Drawing.Point(28, 336)
-$lblBusy.AutoSize = $true
+$lblBusy.Size = New-Object System.Drawing.Size(500, 20)
 $lblBusy.Visible = $false
 $form.Controls.Add($lblBusy)
 
 $lblLogTitle = New-Object System.Windows.Forms.Label
-$lblLogTitle.Text = "Status"
+$lblLogTitle.Text = "Status (live)"
 $lblLogTitle.ForeColor = $muted
 $lblLogTitle.Location = New-Object System.Drawing.Point(28, 360)
 $lblLogTitle.AutoSize = $true
@@ -184,41 +229,105 @@ $statusBox.BackColor = [System.Drawing.Color]::FromArgb(18, 20, 26)
 $statusBox.ForeColor = $text
 $statusBox.Font = New-Object System.Drawing.Font("Consolas", 9)
 $statusBox.Location = New-Object System.Drawing.Point(24, 382)
-$statusBox.Size = New-Object System.Drawing.Size(500, 150)
+$statusBox.Size = New-Object System.Drawing.Size(500, 160)
 $statusBox.BorderStyle = "FixedSingle"
 $form.Controls.Add($statusBox)
 
 $lblStatus = New-Object System.Windows.Forms.Label
 $lblStatus.Text = "Checking..."
 $lblStatus.ForeColor = $muted
-$lblStatus.Location = New-Object System.Drawing.Point(24, 544)
+$lblStatus.Location = New-Object System.Drawing.Point(24, 554)
 $lblStatus.AutoSize = $true
 $form.Controls.Add($lblStatus)
 
 $script:busy = $false
 
-$btnSetup.Add_Click({
-    Start-HTJob -BusyMsg "Setup running (may take several minutes)..." -Work {
-        $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "setup.ps1"))
-        $p = Start-Process -FilePath "powershell.exe" -ArgumentList $argList -Wait -PassThru -NoNewWindow
-        if ($p.ExitCode -eq 0) { Append-Status "Setup finished" "OK" }
-        else {
-            Append-Status "Setup failed (exit $($p.ExitCode)). Open Log for details." "ERROR"
-            Append-Status "Also check: data\output\docker-build.log" "ERROR"
+# ---------- Process Once: run INLINE so every step shows in Status ----------
+$btnProcess.Add_Click({
+    Start-HTJob -BusyMsg "Preparing..." -Work {
+        if (-not (Test-HTImage $Paths)) {
+            Append-Status "Docker image missing. Run Setup first." "ERROR"
+            return
+        }
+        if (-not (Test-Path $Paths.BookFile)) {
+            Append-Status "Book1.xlsx not found" "ERROR"
+            return
+        }
+
+        $files = @(Get-ChildItem -Path $Paths.InputDir -Filter "*.txt" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notlike "~*" -and $_.Name -notlike "_smoke*" -and $_.Length -gt 0 })
+
+        if ($files.Count -eq 0) {
+            Append-Status "No .txt files in data\input - put a file there first." "WARN"
+            return
+        }
+
+        Append-Status "Found $($files.Count) file(s) to process" "INFO"
+        $ok = 0; $fail = 0; $n = $files.Count; $i = 0
+
+        foreach ($file in $files) {
+            $i++
+            $lblBusy.Text = "Processing $($file.Name)  ($i of $n) - Docker running, please wait..."
+            Append-Status "[$i/$n] Start: $($file.Name)" "INFO"
+            [System.Windows.Forms.Application]::DoEvents()
+
+            $cfg = @{ OpenExcel = [bool]$chkExcel.Checked }
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            $success = $false
+            try {
+                $success = Invoke-HTProcessFile -FilePath $file.FullName -Paths $Paths -Config $cfg -OpenExcel:$chkExcel.Checked
+            } catch {
+                Append-Status "Exception: $($_.Exception.Message)" "ERROR"
+                $success = $false
+            }
+            $sw.Stop()
+            $sec = [math]::Round($sw.Elapsed.TotalSeconds, 1)
+
+            if ($success) {
+                $ok++
+                Append-Status "[$i/$n] Done: $($file.Name) (${sec}s) -> output_$([IO.Path]::GetFileNameWithoutExtension($file.Name)).xlsx" "OK"
+            } else {
+                $fail++
+                Append-Status "[$i/$n] Failed: $($file.Name) (${sec}s)" "ERROR"
+            }
+            [System.Windows.Forms.Application]::DoEvents()
+        }
+
+        Append-Status "Finished — OK: $ok | Failed: $fail" "OK"
+        if ($ok -gt 0) {
+            Append-Status "Open Output Folder to see Excel files" "INFO"
         }
     }
 })
 
-$btnRebuild.Add_Click({
-    Start-HTJob -BusyMsg "Rebuilding image (internet required)..." -Work {
-        $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "setup.ps1"), "-Rebuild")
-        $p = Start-Process -FilePath "powershell.exe" -ArgumentList $argList -Wait -PassThru -NoNewWindow
-        if ($p.ExitCode -eq 0) { Append-Status "Rebuild OK" "OK" }
-        else {
-            Append-Status "Rebuild failed (exit $($p.ExitCode)). Open Log." "ERROR"
-            Append-Status "See data\output\docker-build.log for docker errors" "ERROR"
-        }
+# ---------- Setup / Rebuild: visible console + live elapsed + log tail ----------
+function Start-SetupScript {
+    param([switch]$Rebuild)
+    $argList = [System.Collections.ArrayList]@("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "setup.ps1"))
+    if ($Rebuild) { [void]$argList.Add("-Rebuild") }
+
+    Append-Status $(if ($Rebuild) { "Rebuild started (internet + several minutes)..." } else { "Setup started..." }) "INFO"
+    Append-Status "A console window shows full docker build log." "INFO"
+
+    $p = Start-Process -FilePath "powershell.exe" -ArgumentList $argList -PassThru -WorkingDirectory $Paths.ProjectRoot
+    $activity = $(if ($Rebuild) { "Rebuilding image" } else { "Running setup" })
+    $code = Wait-HTProcessLive -Process $p -Activity $activity -LogPath $Paths.LogFile
+
+    if ($code -eq 0) {
+        Append-Status $(if ($Rebuild) { "Rebuild finished OK" } else { "Setup finished OK" }) "OK"
+    } else {
+        Append-Status "Setup/Rebuild failed (exit $code). Click Log for details." "ERROR"
+        $buildLog = Join-Path $Paths.OutputDir "docker-build.log"
+        if (Test-Path $buildLog) { Append-Status "See also: data\output\docker-build.log" "ERROR" }
     }
+}
+
+$btnSetup.Add_Click({
+    Start-HTJob -BusyMsg "Setup running..." -Work { Start-SetupScript }
+})
+
+$btnRebuild.Add_Click({
+    Start-HTJob -BusyMsg "Rebuild running..." -Work { Start-SetupScript -Rebuild }
 })
 
 $btnWatch.Add_Click({
@@ -226,16 +335,6 @@ $btnWatch.Add_Click({
     $wargs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "watch.ps1"))
     if ($chkExcel.Checked) { $wargs += "-OpenExcel" }
     Start-Process -FilePath "powershell.exe" -ArgumentList $wargs
-})
-
-$btnProcess.Add_Click({
-    Start-HTJob -BusyMsg "Processing files..." -Work {
-        $pargs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "run-once.ps1"))
-        if ($chkExcel.Checked) { $pargs += "-OpenExcel" }
-        $p = Start-Process -FilePath "powershell.exe" -ArgumentList $pargs -Wait -PassThru -NoNewWindow
-        if ($p.ExitCode -eq 0) { Append-Status "Process Once finished" "OK" }
-        else { Append-Status "Process finished with errors/warnings" "WARN" }
-    }
 })
 
 $btnInput.Add_Click({
@@ -248,14 +347,15 @@ $btnOutput.Add_Click({
 })
 $btnLog.Add_Click({
     $buildLog = Join-Path $Paths.OutputDir "docker-build.log"
-    if (Test-Path $buildLog) { Start-Process notepad.exe $buildLog }
-    elseif (Test-Path $Paths.LogFile) { Start-Process notepad.exe $Paths.LogFile }
+    if (Test-Path $Paths.LogFile) { Start-Process notepad.exe $Paths.LogFile }
+    elseif (Test-Path $buildLog) { Start-Process notepad.exe $buildLog }
     else { Append-Status "No log yet" "WARN" }
 })
 
 $form.Add_Shown({
     Update-StatusBar
-    Append-Status "Ready - put .txt in Input or click Process Once" "INFO"
+    Append-Status "Ready - put .txt in Input, then click Process Once" "INFO"
+    Append-Status "Status panel updates live while processing." "INFO"
 })
 
 $iconPath = Join-Path $Paths.ProjectRoot "assets\app.ico"
