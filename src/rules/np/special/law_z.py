@@ -98,7 +98,7 @@ class LawZRule(Rule):
             if any(
                 is_possessive_or_s(tokens[j].word)
                 or tokens[j].label == "m3"
-                or getattr(tokens[j], "subtype", "") == "possessive adj"
+                or getattr(tokens[j], "subtype", "") in ("possessive adj", "possessive pronoun")
                 for j in range(start, np_end)
             ):
                 i = max(np_end, start + 1)
@@ -120,7 +120,7 @@ class LawZRule(Rule):
                 if (
                     label == "m1"
                     and low not in vague
-                    and getattr(tok, "subtype", "") != "possessive adj"
+                    and getattr(tok, "subtype", "") not in ("possessive adj", "possessive pronoun")
                 ):
                     has_real_m1 = True
 
