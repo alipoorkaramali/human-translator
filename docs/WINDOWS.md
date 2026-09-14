@@ -2,7 +2,7 @@
 
 ## یک پنجره کافی است
 
-دوبار کلیک **`start.bat`** یا **`windows\start.bat`**:
+دوبار کلیک **`windows\start.bat`**:
 
 | کنترل | رفتار |
 |--------|--------|
@@ -17,17 +17,17 @@
 ## بار اول
 
 1. Docker Desktop روشن
-2. `start.bat` → **Setup (once)**
+2. `windows\start.bat` → **Setup (once)**
 3. فایل را در `data\input` ذخیره کن
 
-## لانچرها
+## لانچرها (فقط داخل `windows/`)
 
-| مسیر | کار |
+| فایل | کار |
 |------|-----|
-| `start.bat` / `windows\start.bat` | GUI + auto-watch |
-| `setup.bat` / `windows\setup.bat` | ساخت ایمیج |
-| `watch.bat` / `windows\watch.bat` | watch کنسولی (اختیاری) |
-| `process.bat` / `windows\process.bat` | پردازش یک‌بار |
+| `windows\start.bat` | GUI + auto-watch |
+| `windows\setup.bat` | ساخت ایمیج |
+| `windows\watch.bat` | watch کنسولی (اختیاری) |
+| `windows\process.bat` | پردازش یک‌بار |
 
 ## قوانین بدون rebuild
 

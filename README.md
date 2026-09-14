@@ -21,9 +21,9 @@ Tags determiners, quantifiers, numbers, adjectives, adverbs, nouns, and verbs wi
 
 1. Install & start [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 2. Clone / pull this repo
-3. Double-click **`start.bat`** (or `windows\start.bat`)
+3. Double-click **`windows\start.bat`**
 4. Click **Setup** once (builds offline image + smoke test)
-5. Drop a `.txt` file into `data/input` → **Process** or **Watch**
+5. Drop a `.txt` file into `data/input` → save (auto-watch) or **Process Once**
 
 Outputs land in `data/output/output_<name>.xlsx`.
 
@@ -89,7 +89,7 @@ Already mounted at runtime → **next process uses the new lists**. No rebuild.
 With the default Windows/CLI mounts, **`src/` is bind-mounted into the container**.  
 → **No Docker rebuild required** for rule logic changes.
 
-### 3. When you *do* need rebuild (`setup.ps1 -Rebuild`)
+### 3. When you *do* need rebuild (`scripts\setup.ps1 -Rebuild`)
 
 | Change | Rebuild? |
 |--------|----------|
@@ -104,8 +104,7 @@ With the default Windows/CLI mounts, **`src/` is bind-mounted into the container
 
 ```text
 human-translator/
-├── start.bat / setup.bat / watch.bat / process.bat   # shortcuts → windows/
-├── windows/              # Windows launchers (start, setup, watch, process)
+├── windows/              # launchers only (start, setup, watch, process)
 ├── scripts/              # PowerShell: GUI, setup, watch, common
 ├── docs/WINDOWS.md       # Windows offline guide
 ├── docker/               # Dockerfile + Dockerfile.offline
