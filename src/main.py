@@ -16,11 +16,21 @@ def _process_one(pipe, input_path, output_dir):
     output_excel = os.path.join(output_dir, f"output_{base}.xlsx")
     output_txt = os.path.join(output_dir, f"output_{base}.txt")
 
-    # Legacy single-file names when only one explicit arg (Windows scripts expect output.xlsx)
-    # Keep both: named file + default aliases for last/only run compatibility.
-    logging.info("Processing: %s", input_path)
     text = read_text_file(input_path)
     df = pipe.run(text, output_file=output_excel)
+
+    # Label/rule audit trail (one pair of files per input)
+    output_trace_txt = os.path.join(output_dir, f"output_{base}_trace.txt")
+    output_trace_xlsx = os.path.join(output_dir, f"output_{base}_trace.xlsx")
+    try:
+        pipe.save_trace(
+            output_trace_txt,
+            path_xlsx=output_trace_xlsx,
+            source_name=input_path,
+        )
+        logging.info("Trace -> %s", output_trace_txt)
+    except Exception as exc:
+        logging.warning("Trace write failed: %s", exc)
 
     summary = (
         f"File: {input_path}\n"
@@ -50,11 +60,9 @@ def main():
     output_dir = os.path.join(root, "data", "output")
     ensure_dir(output_dir)
 
-    # Resolve input files
     if len(sys.argv) >= 2:
         paths = [sys.argv[1]]
     else:
-        # No args (e.g. Docker Desktop Run without command): process all .txt in data/input
         paths = sorted(
             p for p in glob.glob(os.path.join(input_dir, "*.txt"))
             if not os.path.basename(p).startswith(("~", ".", "_smoke"))
@@ -64,9 +72,6 @@ def main():
                 "No input file given and no .txt found in data/input/.\n"
                 "Usage:\n"
                 "  python -m src.main data/input/mytext.txt\n"
-                "  docker run --rm -v HOST/data:/app/data -v HOST/Book1.xlsx:/app/Book1.xlsx "
-                "-v HOST/src:/app/src text-processor data/input/mytext.txt\n"
-                "Or put .txt files in the mounted data/input folder and run without args."
             )
             sys.exit(1)
         logging.info("No CLI args — processing %d file(s) in data/input/", len(paths))

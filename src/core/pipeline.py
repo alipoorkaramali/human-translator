@@ -38,7 +38,6 @@ class Pipeline:
         for i, w in enumerate(words):
             wl = w.lower()
 
-            # ضمیر ملکی مستقل (جانشین NP) — قبل از number_type
             if wl in poss_pron_set or is_possessive_pronoun(w):
                 tokens.append(Token(
                     w, 'm1', 'possessive pronoun',
@@ -46,7 +45,6 @@ class Pipeline:
                 ))
                 continue
 
-            # صفت ملکی (determiner) — قبل از number_type تا my cardinal نشود
             if wl in poss_set or is_possessive_adjective(w):
                 tokens.append(Token(
                     w, 'm1', 'possessive adj',
@@ -71,11 +69,51 @@ class Pipeline:
                 tokens.append(Token(w, '', '', index=i))
         return tokens
 
+    def _record_seed_trace(self) -> None:
+        """Log initial labels from tokenizer as phase=init / rule=seed."""
+        from .label_trace import FieldChange, TraceEvent
+
+        tr = self.processor.tracer
+        tr.clear()
+        for tok in self.processor.tokens:
+            changes = []
+            if tok.label:
+                changes.append(FieldChange("label", "", tok.label, "SET"))
+            if tok.subtype:
+                changes.append(FieldChange("subtype", "", tok.subtype, "SET"))
+            if tok.role and tok.role != "unknown":
+                changes.append(FieldChange("role", "unknown", tok.role, "SET"))
+            if not changes:
+                continue
+            tr._step += 1
+            tr.events.append(
+                TraceEvent(
+                    step=tr._step,
+                    phase="init",
+                    rule="seed",
+                    token_index=tok.index,
+                    word=tok.word,
+                    changes=changes,
+                )
+            )
+
     def run(self, text: str, output_file: str = None) -> pd.DataFrame:
         self.processor.tokens = self._initial_tokenize(text)
+        self._record_seed_trace()
         self.processor.run_all()
 
         df = self.processor.to_dataframe()
         if output_file:
-            df.to_excel(output_file, index=False, engine='openpyxl')
+            df.to_excel(output_file, index=False, engine="openpyxl")
         return df
+
+    def save_trace(
+        self,
+        path_txt: str,
+        path_xlsx: str = None,
+        source_name: str = "",
+    ) -> None:
+        """Write label/rule audit trail for the last run()."""
+        self.processor.save_trace(
+            path_txt, path_xlsx=path_xlsx, source_name=source_name
+        )
