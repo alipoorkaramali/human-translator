@@ -66,6 +66,22 @@ watch.bat -OpenExcel
 OpenExcel = $true
 ```
 
+## تغییر قوانین بدون rebuild
+
+اسکریپت‌های ویندوز این مسیرها را **live mount** می‌کنند:
+
+| میزبان | داخل کانتینر |
+|--------|----------------|
+| `src/` | `/app/src` |
+| `Book1.xlsx` | `/app/Book1.xlsx` |
+| `data/` | `/app/data` |
+
+یعنی:
+
+- قانون جدید در `src/rules/...` → ذخیره → **Process بعدی** همان کد را می‌بیند  
+- کلمهٔ جدید در اکسل → **بدون** `setup -Rebuild`  
+- فقط وقتی `requirements` / NLTK / spaCy عوض شد → **Rebuild**
+
 ## پیکربندی
 
 فایل: `scripts/windows-config.psd1`

@@ -24,6 +24,9 @@ RUN cd /usr/share/nltk_data/corpora && \
         python -c "import zipfile; zipfile.ZipFile('wordnet.zip').extractall('.')"; \
     fi
 
+# نسخهٔ داخل ایمیج = fallback.
+# در runtime، scripts با -v src:/app/src و Book1.xlsx را mount می‌کنند
+# تا تغییر قوانین بدون rebuild اعمال شود.
 COPY src/ ./src/
 COPY Book1.xlsx ./
 
