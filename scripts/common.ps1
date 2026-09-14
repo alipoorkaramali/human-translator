@@ -87,8 +87,7 @@ function Resolve-HTDockerExe {
     $candidates = @(
         "$env:ProgramFiles\Docker\Docker\resources\bin\docker.exe",
         "${env:ProgramFiles(x86)}\Docker\Docker\resources\bin\docker.exe",
-        "$env:LOCALAPPDATA\Programs\Docker\Docker\resources\bin\docker.exe",
-        "$env:ProgramFiles\Docker\Docker\DockerCli.exe"
+        "$env:LOCALAPPDATA\Programs\Docker\Docker\resources\bin\docker.exe"
     )
     foreach ($p in $candidates) {
         if ($p -and (Test-Path $p)) {
@@ -99,44 +98,58 @@ function Resolve-HTDockerExe {
     return $null
 }
 
+function Invoke-HTNativeDocker {
+    # Run docker via cmd so stderr WARNINGs do not become terminating
+    # PowerShell errors under $ErrorActionPreference = 'Stop'.
+    param(
+        [string]$Exe,
+        [string[]]$Args
+    )
+    $argLine = ($Args | ForEach-Object {
+        if ($_ -match '\s') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ }
+    }) -join ' '
+
+    $quotedExe = '"' + $Exe + '"'
+    cmd.exe /c "$quotedExe $argLine" | Out-Null
+    return $LASTEXITCODE
+}
+
 function Get-HTDockerStatus {
     # Returns: @{ Ok = $bool; Reason = $string; Exe = $string }
-    $exe = Resolve-HTDockerExe
-    if (-not $exe) {
-        return @{
-            Ok = $false
-            Reason = "docker.exe not found in PATH or default install folders. Install Docker Desktop."
-            Exe = $null
-        }
-    }
-
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     try {
-        $ver = & $exe --version 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            return @{ Ok = $false; Reason = "docker --version failed: $ver"; Exe = $exe }
-        }
-    } catch {
-        return @{ Ok = $false; Reason = "Cannot run docker.exe: $($_.Exception.Message)"; Exe = $exe }
-    }
-
-    try {
-        $info = & $exe info 2>&1 | Out-String
-        if ($LASTEXITCODE -ne 0) {
-            $hint = "Docker Desktop is installed but the engine is not running."
-            if ($info -match "pipe|named pipe|cannot connect|error during connect|dockerDesktopLinuxEngine") {
-                $hint = "Docker Desktop engine is not running. Open Docker Desktop and wait until status is Running."
+        $exe = Resolve-HTDockerExe
+        if (-not $exe) {
+            return @{
+                Ok = $false
+                Reason = "docker.exe not found in PATH or default install folders. Install Docker Desktop."
+                Exe = $null
             }
-            return @{ Ok = $false; Reason = $hint; Exe = $exe }
         }
-    } catch {
-        return @{
-            Ok = $false
-            Reason = "Docker engine not reachable. Start Docker Desktop and wait until it is fully Running."
-            Exe = $exe
-        }
-    }
 
-    return @{ Ok = $true; Reason = "OK"; Exe = $exe }
+        $verExit = Invoke-HTNativeDocker -Exe $exe -Args @('--version')
+        if ($verExit -ne 0) {
+            return @{
+                Ok = $false
+                Reason = "docker --version failed (exit=$verExit). Is Docker Desktop installed?"
+                Exe = $exe
+            }
+        }
+
+        $infoExit = Invoke-HTNativeDocker -Exe $exe -Args @('info')
+        if ($infoExit -ne 0) {
+            return @{
+                Ok = $false
+                Reason = "Docker Desktop engine is not running (docker info exit=$infoExit). Open Docker Desktop and wait until status is Running."
+                Exe = $exe
+            }
+        }
+
+        return @{ Ok = $true; Reason = "OK"; Exe = $exe }
+    } finally {
+        $ErrorActionPreference = $prevEap
+    }
 }
 
 function Test-HTDocker {
@@ -145,20 +158,18 @@ function Test-HTDocker {
     return [bool]$st.Ok
 }
 
-function Invoke-HTDocker {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$DockerArgs)
-    $exe = Resolve-HTDockerExe
-    if (-not $exe) { $exe = "docker" }
-    & $exe @DockerArgs
-    return $LASTEXITCODE
-}
-
 function Test-HTImage {
     param($Paths)
     $exe = Resolve-HTDockerExe
     if (-not $exe) { return $false }
-    $id = & $exe images -q $Paths.ImageName 2>$null
-    return [bool]$id
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $id = cmd.exe /c "`"$exe`" images -q $($Paths.ImageName)" 2>$null
+        return [bool]($id -and "$id".Trim())
+    } finally {
+        $ErrorActionPreference = $prevEap
+    }
 }
 
 function Ensure-HTDirs {
@@ -238,6 +249,8 @@ function Invoke-HTProcessFile {
         }
 
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
         $dockerArgs = @(
             "run", "--rm",
             "-v", "${dockerDataPath}:/app/data",
@@ -249,6 +262,7 @@ function Invoke-HTProcessFile {
 
         $output = & $exe @dockerArgs 2>&1
         $exitCode = $LASTEXITCODE
+        $ErrorActionPreference = $prevEap
         $sw.Stop()
 
         foreach ($line in $output) {
