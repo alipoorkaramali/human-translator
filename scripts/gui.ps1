@@ -1,5 +1,6 @@
 # ============================================================
 # gui.ps1 - Human Translator (WinForms) + integrated auto-watch
+# No CMD windows — status panel is the only user-facing log
 # ============================================================
 $ErrorActionPreference = "Stop"
 function Write-GuiCrashLog([string]$Message) {
@@ -17,6 +18,7 @@ try {
   . "$PSScriptRoot\common.ps1"
   $Paths = Get-HTPaths; $Config = Get-HTConfig $Paths
   Ensure-HTDirs $Paths; Set-Location $Paths.ProjectRoot
+  $global:HT_GuiLog = $null
 
   $bg=[Drawing.Color]::FromArgb(24,26,32); $panelBg=[Drawing.Color]::FromArgb(36,40,48)
   $accent=[Drawing.Color]::FromArgb(88,166,255); $ok=[Drawing.Color]::FromArgb(63,185,80)
@@ -32,11 +34,30 @@ try {
   }
   function Log($m,$lvl='INFO') {
     $p=switch($lvl){'OK'{'[OK]'}'ERROR'{'[ERR]'}'WARN'{'[!]'}default{'[...]'}}
-    $statusBox.AppendText(("[{0}] {1} {2}`r`n" -f (Get-Date -Format 'HH:mm:ss'), $p, $m))
-    $statusBox.SelectionStart=$statusBox.Text.Length; $statusBox.ScrollToCaret()
+    $line = ("[{0}] {1} {2}" -f (Get-Date -Format 'HH:mm:ss'), $p, $m)
+    if ($statusBox.InvokeRequired) {
+      $statusBox.Invoke([Action]{
+        $statusBox.AppendText($line + "`r`n")
+        $statusBox.SelectionStart=$statusBox.Text.Length
+        $statusBox.ScrollToCaret()
+      })
+    } else {
+      $statusBox.AppendText($line + "`r`n")
+      $statusBox.SelectionStart=$statusBox.Text.Length
+      $statusBox.ScrollToCaret()
+    }
     [Windows.Forms.Application]::DoEvents()
-    try { Write-HTLog $m $lvl $Paths } catch {}
+    try {
+      if ($Paths.LogFile) {
+        $dir = Split-Path $Paths.LogFile -Parent
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        Add-Content -Path $Paths.LogFile -Value ("[{0}] [{1}] {2}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $lvl, $m) -Encoding UTF8
+      }
+    } catch {}
   }
+
+  $global:HT_GuiLog = { param($Message, $Level) try { Log $Message $Level } catch {} }
+
   function Update-Bar {
     $d=$false;$i=$false
     try{$d=Test-HTDocker $Paths}catch{}; try{$i=Test-HTImage $Paths}catch{}
@@ -87,9 +108,9 @@ try {
         if($script:lastDone.ContainsKey($fp) -and $script:lastDone[$fp] -eq $lw){continue}
         $script:watchProc=$true
         try {
-          Log "Auto: $($it.Name)"
+          Log "Input updated: $($it.Name)"
           $ok=Invoke-HTProcessFile -FilePath $fp -Paths $Paths -Config $Config -OpenExcel:($chkExcel.Checked)
-          if($ok){ $script:lastDone[$fp]=$lw; Log "Done: $($it.Name)" 'OK'; Update-Bar }
+          if($ok){ $script:lastDone[$fp]=$lw; Log "Finished: $($it.Name) — Excel is ready in Output" 'OK'; Update-Bar }
           else { Log "Failed: $($it.Name)" 'ERROR' }
         } catch { Log "Watch error: $($_.Exception.Message)" 'ERROR' }
         finally { $script:watchProc=$false }
@@ -150,25 +171,76 @@ try {
     finally { $script:busy=$false; Update-Bar }
   }
 
-  $btnSetup.Add_Click({ Run-Job 'Setup' { 
-    $a=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $Paths.ScriptDir 'setup.ps1'))
-    Log 'Setup started...'; $p=Start-Process powershell.exe -ArgumentList $a -Wait -PassThru -WorkingDirectory $Paths.ProjectRoot
-    if($p.ExitCode -eq 0){Log 'Setup OK' 'OK'} else {Log "Setup failed $($p.ExitCode)" 'ERROR'}
+  function Invoke-HiddenPowerShell {
+    param([string[]]$ArgumentList, [string]$Activity)
+    Log "$Activity started (running in background)..."
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = "powershell.exe"
+    $psi.Arguments = ($ArgumentList -join ' ')
+    $psi.WorkingDirectory = $Paths.ProjectRoot
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.StandardOutputEncoding = [Text.Encoding]::UTF8
+    $psi.StandardErrorEncoding = [Text.Encoding]::UTF8
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $psi
+    [void]$p.Start()
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while (-not $p.HasExited) {
+      while (-not $p.StandardOutput.EndOfStream) {
+        $line = $p.StandardOutput.ReadLine()
+        if ($line) {
+          $clean = ($line -replace '\x1b\[[0-9;]*m','').Trim()
+          if ($clean -match '(?i)error|fail|not found|missing') { Log $clean 'ERROR' }
+          elseif ($clean -match '(?i)ok|success|complete|built|ready|smoke') { Log $clean 'OK' }
+          elseif ($clean -match '(?i)docker|image|nltk|setup|build') { Log $clean 'INFO' }
+        }
+      }
+      $lblStatus.Text = "$Activity... $([int]$sw.Elapsed.TotalSeconds)s"
+      [Windows.Forms.Application]::DoEvents()
+      Start-Sleep -Milliseconds 200
+    }
+    $err = $p.StandardError.ReadToEnd()
+    if ($err) {
+      foreach ($ln in ($err -split "`r?`n")) {
+        if ($ln.Trim() -and $ln -match '(?i)error|fail') { Log $ln.Trim() 'ERROR' }
+      }
+    }
+    $outRest = $p.StandardOutput.ReadToEnd()
+    if ($outRest) {
+      foreach ($ln in ($outRest -split "`r?`n")) {
+        $clean = $ln.Trim()
+        if ($clean -match '(?i)ok|success|complete|built') { Log $clean 'OK' }
+      }
+    }
+    return $p.ExitCode
+  }
+
+  $btnSetup.Add_Click({ Run-Job 'Setup' {
+    $setupPath = Join-Path $Paths.ScriptDir 'setup.ps1'
+    $a = @('-NoProfile','-ExecutionPolicy','Bypass','-File',"`"$setupPath`"")
+    $code = Invoke-HiddenPowerShell -ArgumentList $a -Activity 'Setup'
+    if ($code -eq 0) { Log 'Setup finished successfully' 'OK'; Update-Bar }
+    else { Log "Setup failed (exit $code). Click Log for details." 'ERROR' }
   }})
   $btnRebuild.Add_Click({ Run-Job 'Rebuild' {
-    $a=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $Paths.ScriptDir 'setup.ps1'),'-Rebuild')
-    Log 'Rebuild started...'; $p=Start-Process powershell.exe -ArgumentList $a -Wait -PassThru -WorkingDirectory $Paths.ProjectRoot
-    if($p.ExitCode -eq 0){Log 'Rebuild OK' 'OK'} else {Log "Rebuild failed" 'ERROR'}
+    $setupPath = Join-Path $Paths.ScriptDir 'setup.ps1'
+    $a = @('-NoProfile','-ExecutionPolicy','Bypass','-File',"`"$setupPath`"",'-Rebuild')
+    $code = Invoke-HiddenPowerShell -ArgumentList $a -Activity 'Rebuild'
+    if ($code -eq 0) { Log 'Rebuild finished successfully' 'OK'; Update-Bar }
+    else { Log "Rebuild failed (exit $code)." 'ERROR' }
   }})
   $btnProcess.Add_Click({ Run-Job 'Process' {
     $files=@(Get-ChildItem $Paths.InputDir -Filter '*.txt' -ea 0 | ?{ $_.Name -notlike '~*' -and $_.Name -notlike '_smoke*' -and $_.Length -gt 0 })
     if($files.Count -eq 0){ Log 'No .txt in Input' 'WARN'; return }
     $n=0;$f=0
     foreach($file in $files){
-      Log "Process: $($file.Name)"
+      Log "Input: $($file.Name)"
       if(Invoke-HTProcessFile -FilePath $file.FullName -Paths $Paths -Config $Config -OpenExcel:($chkExcel.Checked)){ $n++ } else { $f++ }
     }
-    Log "Done OK=$n Fail=$f" 'OK'
+    Log "Batch done — OK=$n  Failed=$f" 'OK'
   }})
   $btnInput.Add_Click({ if(-not (Test-Path $Paths.InputDir)){New-Item -ItemType Directory $Paths.InputDir -Force|Out-Null}; Start-Process explorer.exe $Paths.InputDir })
   $btnOutput.Add_Click({ if(-not (Test-Path $Paths.OutputDir)){New-Item -ItemType Directory $Paths.OutputDir -Force|Out-Null}; Start-Process explorer.exe $Paths.OutputDir })
@@ -181,10 +253,10 @@ try {
   $form.Add_Shown({
     Update-Bar
     if($chkWatch.Checked){ Start-Watch }
-    Log 'Ready — Auto-watch ON. Save .txt in Input to process.' 'OK'
-    Log 'Tick Open Excel to auto-open results after each process.'
+    Log 'Ready — only this window. Save .txt in Input to process.' 'OK'
+    Log 'Status panel shows Input / Excel updates. No CMD windows.'
   })
-  $form.Add_FormClosed({ try{Stop-Watch}catch{} })
+  $form.Add_FormClosed({ try{Stop-Watch}catch{}; $global:HT_GuiLog = $null })
   $ico=Join-Path $Paths.ProjectRoot 'assets\app.ico'
   if(Test-Path $ico){ try{$form.Icon=New-Object Drawing.Icon($ico)}catch{} }
   [void]$form.ShowDialog()
