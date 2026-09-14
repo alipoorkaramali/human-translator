@@ -76,9 +76,6 @@ class Pipeline:
         for i, tok in enumerate(self.processor.tokens):
             if tok.label:
                 tr._last_setter[(i, "label")] = "seed"
-                tr._label_hist.setdefault((i, tok.word), []).append(
-                    ("seed", tok.label)
-                )
 
     def run(self, text: str, output_file: str = None) -> pd.DataFrame:
         self.processor.tokens = self._initial_tokenize(text)

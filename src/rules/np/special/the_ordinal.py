@@ -82,15 +82,10 @@ class TheOrdinalRule(Rule):
                 tokens[i:i + 2] = [combined]
                 changed = True
             else:
-                # ordinal تنها → adv + lock (جلوگیری از جنگ با spaCy در max_iter)
-                if not nxt.locked:
-                    if nxt.label != "adv" or nxt.role != "adverb":
-                        nxt.label = "adv"
-                        nxt.role = "adverb"
-                        if not nxt.subtype:
-                            nxt.subtype = "ordinal"
-                        changed = True
-                    nxt.locked = True
+                # ordinal تنها (بدون the) → adv
+                if not nxt.locked and nxt.label != "adv":
+                    nxt.label = "adv"
+                    nxt.role = "adverb"
                     changed = True
                 i += 1
 
