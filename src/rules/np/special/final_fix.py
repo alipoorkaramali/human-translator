@@ -44,10 +44,15 @@ class FinalFixAfterNounRule(Rule):
                 number_type(tok.word, cardinals, ordinals) is not None
             )
 
+            # فقط داخل همان NP/بند؛ فعل و مرز جمله را رد نکن
+            # (باگ قبلی: is_np_boundary(prev.word) رشته بود → برچسب V دیده نمی‌شد
+            #  و از has رد می‌شد تا به brother می‌رسید → two اشتباه m4 می‌شد)
             has_noun_without_of = False
             for j in range(i - 1, -1, -1):
                 prev = tokens[j]
-                if is_np_boundary(prev.word):
+                if prev.label == "V":
+                    break
+                if is_np_boundary(prev):
                     break
                 if prev.word.lower() == "of":
                     break
