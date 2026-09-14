@@ -4,6 +4,7 @@ from ..rule_base import RuleRegistry
 
 _M1_RULES = [
     ('src.rules.np.m1.possessive_adj_rule', 'PossessiveAdjRule'),
+    ('src.rules.np.m1.possessive_pronoun_rule', 'PossessivePronounRule'),
     ('src.rules.np.m1.fraction_rule', 'FractionRule'),
     ('src.rules.np.m1.compound_number_rule', 'CompoundNumberRule'),
     ('src.rules.np.m1.article_rule', 'ArticleRule'),
