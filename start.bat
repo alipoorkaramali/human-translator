@@ -1,0 +1,5 @@
+@echo off
+chcp 65001 >nul
+title Human Translator
+cd /d "%~dp0"
+start "" powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0scripts\gui.ps1"
