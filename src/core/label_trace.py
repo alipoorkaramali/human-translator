@@ -84,9 +84,34 @@ class LabelTracer:
         if not self.enabled:
             return 0
         n_changed = 0
-        for i, tok in enumerate(tokens):
+
+        # Compound merges/splits change list length — record that, never index OOB
+        if len(before) != len(tokens):
+            self._step += 1
+            self.events.append(
+                TraceEvent(
+                    step=self._step,
+                    phase=phase,
+                    rule=rule_name,
+                    token_index=-1,
+                    word="(token-list)",
+                    changes=[
+                        FieldChange(
+                            field="token_count",
+                            old=str(len(before)),
+                            new=str(len(tokens)),
+                            kind="CHANGE",
+                        )
+                    ],
+                )
+            )
+            n_changed += 1
+
+        # Align by position for the shared prefix only
+        for i in range(min(len(tokens), len(before))):
+            tok = tokens[i]
             after = _snap(tok)
-            prev = before[i] if i < len(before) else {}
+            prev = before[i]
             changes: List[FieldChange] = []
             for key in _WATCH:
                 old, new = prev.get(key), after.get(key)
@@ -134,6 +159,8 @@ class LabelTracer:
     def multi_label_tokens(self) -> List[int]:
         counts: Dict[int, int] = {}
         for e in self.events:
+            if e.token_index < 0:
+                continue
             if any(c.field == "label" for c in e.changes):
                 counts[e.token_index] = counts.get(e.token_index, 0) + 1
         return sorted(i for i, n in counts.items() if n > 1)
@@ -242,12 +269,17 @@ class LabelTracer:
                     for e in self.events_for_token(i)
                     if any(c.field == "label" for c in e.changes)
                 ]
+                if not evs:
+                    continue
+                word = evs[-1].word
+                if 0 <= i < len(tokens):
+                    word = tokens[i].word
                 path = " → ".join(
                     f"{e.rule}("
-                    f"{next(c.new for c in e.changes if c.field == 'label')})"
+                    f"{next((c.new for c in e.changes if c.field == 'label'), '?')})"
                     for e in evs
                 )
-                lines.append(f"  [{i}] {tokens[i].word!r}: {path}")
+                lines.append(f"  [{i}] {word!r}: {path}")
 
         overrides = self.override_events()
         lines.append("")
