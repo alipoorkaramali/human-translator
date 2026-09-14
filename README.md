@@ -1,46 +1,156 @@
-# Human Translator - Quantifier Tagger
+# Human Translator
 
-یک ابزار خط فرمانی برای برچسب‌زنی کمیت‌نماها، اعداد، صفات و قیود در زبان انگلیسی با استفاده از NLTK و داکر.
+**Rule-based English quantifier & NP tagger** — designed for offline use, deterministic labeling, and easy rule extension.
 
-## ویژگی‌ها
-- برچسب‌زنی دقیق m1 (determiner/quantifier)، m2 (adjective)، adv، N، V و ...
-- پشتیبانی از کسرها، اعداد مرکب، عبارات چندکلمه‌ای
-- اجرای آفلاین با داکر (داده‌های NLTK درون ایمیج)
+Tags determiners, quantifiers, numbers, adjectives, adverbs, nouns, and verbs with structural labels (`m1`…`m5`, `N`, `V`, `adv`, …) and semantic subtypes (`cardinal`, `ordinal`, `possessive adj`, `possessive pronoun`, …).
 
-## ساختار پروژه
+---
 
-- `src/core/` : هستهٔ سیستم (Token, Context, Rule, Processor, Pipeline)
-- `src/core/importers/` : واردکننده‌ها (Excel، قوانین NP/VP)
-- `src/rules/` : پیاده‌سازی قوانین به‌صورت Rule Class
-- `src/utils.py` : ابزارهای عمومی
-- `data/` : ورودی/خروجی
-- `docker/` : Dockerfile و Dockerfile.offline
-- `scripts/` : setup/watch ویندوز + داشبورد GUI + دانلود NLTK
-- `Book1.xlsx` : مجموعه‌های کلمات
+## Why this project
 
-## نحوه اجرا با داکر
+| Goal | Approach |
+|------|----------|
+| **Deterministic** | Explicit priority-ordered rules, not a black-box model |
+| **Offline** | One Docker image build; runtime needs no network |
+| **Extensible** | Add/edit a rule class → mount `src/` → next run uses it |
+| **Windows-friendly** | GUI dashboard + watch folder for `.txt` → Excel |
 
-### ۱. ساخت ایمیج (آنلاین / عادی)
+---
+
+## Quick start (Windows)
+
+1. Install & start [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+2. Clone / pull this repo
+3. Double-click **`start.bat`**
+4. Click **Setup** once (builds offline image + smoke test)
+5. Drop a `.txt` file into `data/input` → **Process** or **Watch**
+
+Outputs land in `data/output/output_<name>.xlsx`.
+
+Full Windows guide: **[WINDOWS.md](WINDOWS.md)**
+
+---
+
+## Quick start (CLI / Linux / macOS)
+
 ```bash
-docker build -f docker/Dockerfile -t text-processor .
-```
-
-### ۲. ساخت ایمیج آفلاین (NLTK داخل ایمیج)
-```bash
+# Offline image (NLTK + spaCy baked in — needs network only at build time)
 docker build -f docker/Dockerfile.offline -t text-processor .
+
+# Run with live code + data mounts
+docker run --rm \
+  -v "$PWD/data:/app/data" \
+  -v "$PWD/Book1.xlsx:/app/Book1.xlsx" \
+  -v "$PWD/src:/app/src" \
+  text-processor data/input/test.txt
 ```
 
-### ۳. اجرا
+Without mounting `src/`, the image uses the code copied at **build** time.
+
+---
+
+## Architecture
+
+```text
+text
+  → tokenize + seed labels
+  → phases: m1 → m2 → m3 → m4 → m5 → special → VP → np_span
+  → Excel / text report
+```
+
+| Layer | Role |
+|-------|------|
+| `src/ht_token.py` | Token: word, label, subtype, role, lock, NP spans |
+| `src/core/pipeline.py` | Orchestrates phases |
+| `src/core/processor.py` | Runs rules by priority until stable |
+| `src/rules/np/**` | NP rules (articles, compounds, ordinals, possessives, …) |
+| `src/rules/vp/**` | VP rules |
+| `Book1.xlsx` | Lexical sets (articles, compounds, ordinals, possessives, …) |
+
+Rules are plain Python classes (`Rule`) with `priority` and `apply(tokens, ctx)`.
+
+---
+
+## Extending rules (yes — you can)
+
+You can **add, remove, or change rules anytime**. Nothing breaks if you follow the pattern.
+
+### 1. Lexicon only (no code)
+
+Edit **`Book1.xlsx`** columns (`compound`, `ordinal`, `possessive`, …).  
+Already mounted at runtime → **next process uses the new lists**. No rebuild.
+
+### 2. New / changed rule code
+
+1. Add or edit a file under `src/rules/...`
+2. Register it in `src/core/importers/np_importer.py` (or VP importer)
+3. Save
+
+With the default Windows/CLI mounts, **`src/` is bind-mounted into the container**.  
+→ **No Docker rebuild required** for rule logic changes.
+
+### 3. When you *do* need rebuild (`setup.ps1 -Rebuild`)
+
+| Change | Rebuild? |
+|--------|----------|
+| Rule Python code | **No** (live `src` mount) |
+| `Book1.xlsx` | **No** (live mount) |
+| `requirements.txt` / spaCy / NLTK data | **Yes** |
+| Base Dockerfile | **Yes** |
+
+---
+
+## Project layout
+
+```text
+human-translator/
+├── start.bat / setup.bat / watch.bat / process.bat
+├── WINDOWS.md
+├── Book1.xlsx
+├── src/
+│   ├── main.py
+│   ├── ht_token.py
+│   ├── utils.py
+│   ├── core/           # pipeline, processor, context, importers
+│   └── rules/          # np/ + vp/ rule modules
+├── data/input/         # drop .txt here
+├── data/output/        # Excel + logs
+├── docker/
+│   ├── Dockerfile
+│   └── Dockerfile.offline
+├── scripts/            # PowerShell automation + GUI
+└── assets/             # app icon
+```
+
+---
+
+## Labels (cheat sheet)
+
+| Label | Typical use |
+|-------|-------------|
+| `m1` | Determiner / quantifier / NP-substitute possessives |
+| `m2` | Adjective |
+| `m3` | Genitive `'s` (noun-side) |
+| `m4` | Post-nominal number (after N in NP) |
+| `N` / `V` / `adv` | Noun / verb / adverb |
+
+**Subtypes** on `m1`: `cardinal`, `ordinal`, `possessive adj`, `possessive pronoun`, …
+
+---
+
+## Development
+
 ```bash
-docker run --rm -v "$PWD/data:/app/data" -v "$PWD/Book1.xlsx:/app/Book1.xlsx" text-processor data/input/test.txt
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt -r requirements-dev.txt
+python -m src.main data/input/test.txt
 ```
 
-## اجرای آفلاین روی ویندوز
+Tests: see `tests/` and CI under `.github/workflows/`.
 
-دستورالعمل کامل: **[WINDOWS.md](WINDOWS.md)**
+---
 
-خلاصه:
+## License
 
-1. **`start.bat`** — داشبورد گرافیکی (پیشنهادی)
-2. یا `setup.bat` سپس `watch.bat` / `process.bat`
-3. فایل `.txt` را در `data/input` بگذار → خروجی در `data/output`
+See `LICENSE`.
