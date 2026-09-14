@@ -23,22 +23,26 @@ _WATCH = ("label", "subtype", "role", "locked", "np_inner", "np_of_np")
 
 
 def is_np_boundary(token) -> bool:
-    """Local boundary check (no nltk import)."""
-    if not token:
+    """Same rules as src.utils.is_np_boundary (single source of truth)."""
+    try:
+        from src.utils import is_np_boundary as _real
+        return _real(token)
+    except Exception:
+        if not token:
+            return False
+        if hasattr(token, "label") and getattr(token, "label", "") == "V":
+            return True
+        w = str(getattr(token, "word", token)).lower()
+        if not w or " " in w:
+            return False
+        if w in {".", "!", "?", ";", ":", "—", ","}:
+            return True
+        if w in {
+            "in", "on", "at", "to", "for", "from", "with", "by", "about",
+            "and", "but", "or",
+        }:
+            return True
         return False
-    t = str(getattr(token, "word", token)).lower()
-    if " " in t:
-        return False
-    if t in {".", "!", "?", ";", ":", "—", ","}:
-        return True
-    if t in {
-        "in", "on", "at", "to", "for", "from", "with", "by", "about",
-        "into", "onto", "upon", "over", "under", "between", "among",
-        "through", "during", "before", "after", "without", "within",
-        "along", "across", "behind", "beyond", "against", "near",
-    }:
-        return True
-    return False
 
 
 def _snap(tok: Token) -> Dict[str, Any]:
@@ -61,11 +65,11 @@ def _np_span(tokens: List[Token], index: int) -> Tuple[int, int, str]:
         return index, index, ""
 
     left = index
-    while left > 0 and not is_np_boundary(tokens[left - 1].word):
+    while left > 0 and not is_np_boundary(tokens[left - 1]):
         left -= 1
 
     right = index
-    while right < len(tokens) - 1 and not is_np_boundary(tokens[right + 1].word):
+    while right < len(tokens) - 1 and not is_np_boundary(tokens[right + 1]):
         right += 1
 
     pieces = []
