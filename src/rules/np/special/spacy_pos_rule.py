@@ -73,10 +73,6 @@ def _get_nlp():
 
 
 def _align_pos(tokens: List["Token"], doc) -> List[Optional[str]]:
-    """
-    هم‌ترازی حریصانهٔ توکن‌های ما با توکن‌های spaCy.
-    برای توکن چندکلمه‌ای: None (دست نزن).
-    """
     result: List[Optional[str]] = [None] * len(tokens)
     spacy_i = 0
     spacy_toks = list(doc)
@@ -84,14 +80,12 @@ def _align_pos(tokens: List["Token"], doc) -> List[Optional[str]]:
     for i, tok in enumerate(tokens):
         w = tok.word
         if " " in w:
-            # چندکلمه: تعداد تقریبی توکن spaCy را رد کن
             parts = w.split()
             for _ in parts:
                 if spacy_i < len(spacy_toks):
                     spacy_i += 1
             continue
 
-        # رد کردن فاصله‌مانند در spaCy
         while spacy_i < len(spacy_toks) and spacy_toks[spacy_i].is_space:
             spacy_i += 1
 
@@ -103,7 +97,6 @@ def _align_pos(tokens: List["Token"], doc) -> List[Optional[str]]:
             result[i] = st.pos_
             spacy_i += 1
         else:
-            # جستجوی محدود جلوتر
             found = False
             for j in range(spacy_i, min(spacy_i + 3, len(spacy_toks))):
                 if spacy_toks[j].text.lower() == w.lower():
@@ -112,11 +105,6 @@ def _align_pos(tokens: List["Token"], doc) -> List[Optional[str]]:
                     found = True
                     break
             if not found:
-                # تک‌کلمه به spaCy
-                try:
-                    d2 = st.doc.vocab  # noqa — fallback زیر
-                except Exception:
-                    pass
                 spacy_i += 1
 
     return result
@@ -125,7 +113,7 @@ def _align_pos(tokens: List["Token"], doc) -> List[Optional[str]]:
 class SpacyPosRule(Rule):
     name = "spacy_pos"
     target_label = "special"
-    priority = 86  # قبل از wordnet (88) و little (90)
+    priority = 86
 
     def apply(self, tokens: List["Token"], ctx: "Context") -> bool:
         if not tokens:
@@ -135,7 +123,6 @@ class SpacyPosRule(Rule):
         if nlp is None:
             return False
 
-        # ذخیره روی ctx برای استفادهٔ بعدی در همان Pipeline
         if getattr(ctx, "spacy_nlp", None) is None:
             try:
                 ctx.extra["spacy_nlp"] = nlp
@@ -151,14 +138,18 @@ class SpacyPosRule(Rule):
 
         poses = _align_pos(tokens, doc)
         changed = False
+        intensifiers = getattr(ctx, "intensifier_set", set()) or set()
 
         for i, tok in enumerate(tokens):
             if tok.locked:
                 continue
             if " " in tok.word:
                 continue
+            if tok.subtype == "ordinal":
+                continue
+            if tok.word.lower() in intensifiers:
+                continue
             if tok.label in _PROTECTED_LABELS:
-                # فقط role را اگر خالی است از spaCy پر کن
                 pos = poses[i]
                 if pos and tok.role in ("", "unknown"):
                     role = _POS_TO_ROLE.get(pos)
@@ -188,7 +179,6 @@ class SpacyPosRule(Rule):
                     tok.role = new_role
                     changed = True
 
-            # DET/ADP بدون برچسب ساختاری ما
             if pos == "ADP" and tok.label == "":
                 if tok.role != "preposition":
                     tok.role = "preposition"
