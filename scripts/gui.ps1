@@ -1,11 +1,12 @@
 # ============================================================
 # gui.ps1 - Text Processor dashboard (WinForms)
-# Live progress in status panel (no silent freeze)
+# Live progress + classic (XP-style blocks) progress bar
 # ============================================================
 
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+# Classic controls look closer to older Windows installers
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 . "$PSScriptRoot\common.ps1"
@@ -66,6 +67,48 @@ function Append-Status {
     try { Write-HTLog $Msg $Level $Paths } catch { }
 }
 
+function Set-Progress {
+    param(
+        [int]$Value,
+        [int]$Maximum = 100,
+        [string]$Caption = ""
+    )
+    if ($Maximum -lt 1) { $Maximum = 1 }
+    if ($Value -lt 0) { $Value = 0 }
+    if ($Value -gt $Maximum) { $Value = $Maximum }
+
+    $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Continuous
+    $progressBar.Maximum = $Maximum
+    $progressBar.Value = $Value
+    $pct = [int](100.0 * $Value / $Maximum)
+    $lblPercent.Text = "$pct%"
+    if ($Caption) { $lblBusy.Text = $Caption; $lblBusy.Visible = $true }
+    $progressBar.Visible = $true
+    $lblPercent.Visible = $true
+    [System.Windows.Forms.Application]::DoEvents()
+}
+
+function Set-ProgressMarquee {
+    param([string]$Caption = "Working...")
+    $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Marquee
+    $progressBar.MarqueeAnimationSpeed = 30
+    $progressBar.Visible = $true
+    $lblPercent.Text = "..."
+    $lblPercent.Visible = $true
+    $lblBusy.Text = $Caption
+    $lblBusy.Visible = $true
+    [System.Windows.Forms.Application]::DoEvents()
+}
+
+function Reset-Progress {
+    $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Continuous
+    $progressBar.MarqueeAnimationSpeed = 0
+    $progressBar.Value = 0
+    $progressBar.Visible = $false
+    $lblPercent.Text = ""
+    $lblPercent.Visible = $false
+}
+
 function Update-StatusBar {
     $dockerOk = Test-HTDocker $Paths
     $imageOk  = Test-HTImage $Paths
@@ -92,6 +135,7 @@ function Set-Busy([bool]$On, [string]$Msg = "") {
     foreach ($c in @($btnSetup, $btnWatch, $btnProcess, $btnRebuild)) {
         $c.Enabled = -not $On
     }
+    if (-not $On) { Reset-Progress }
     [System.Windows.Forms.Application]::DoEvents()
 }
 
@@ -124,12 +168,13 @@ function Wait-HTProcessLive {
         $lastLogLen = (Get-Item $LogPath).Length
     }
 
+    Set-ProgressMarquee "$Activity - please wait..."
+
     while (-not $Process.HasExited) {
         $sec = [int]$sw.Elapsed.TotalSeconds
-        $lblBusy.Text = "$Activity  (${sec}s elapsed - not frozen, please wait)"
+        $lblBusy.Text = "$Activity  (${sec}s elapsed - not frozen)"
         [System.Windows.Forms.Application]::DoEvents()
 
-        # Stream new log lines into the status panel
         if ($LogPath -and (Test-Path $LogPath)) {
             try {
                 $fs = [System.IO.File]::Open($LogPath, 'Open', 'Read', 'ReadWrite')
@@ -154,12 +199,13 @@ function Wait-HTProcessLive {
         Start-Sleep -Milliseconds 400
     }
     $Process.WaitForExit() | Out-Null
+    Set-Progress -Value 100 -Maximum 100 -Caption "Done"
     return $Process.ExitCode
 }
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Human Translator"
-$form.Size = New-Object System.Drawing.Size(560, 640)
+$form.Size = New-Object System.Drawing.Size(560, 680)
 $form.StartPosition = "CenterScreen"
 $form.BackColor = $bg
 $form.ForeColor = $text
@@ -209,15 +255,35 @@ $form.Controls.Add($chkExcel)
 $lblBusy = New-Object System.Windows.Forms.Label
 $lblBusy.Text = ""
 $lblBusy.ForeColor = $warn
-$lblBusy.Location = New-Object System.Drawing.Point(28, 336)
-$lblBusy.Size = New-Object System.Drawing.Size(500, 20)
+$lblBusy.Location = New-Object System.Drawing.Point(28, 332)
+$lblBusy.Size = New-Object System.Drawing.Size(450, 18)
 $lblBusy.Visible = $false
 $form.Controls.Add($lblBusy)
+
+# Classic progress bar (block chunks look like old Windows installers)
+$progressBar = New-Object System.Windows.Forms.ProgressBar
+$progressBar.Location = New-Object System.Drawing.Point(24, 354)
+$progressBar.Size = New-Object System.Drawing.Size(460, 22)
+$progressBar.Minimum = 0
+$progressBar.Maximum = 100
+$progressBar.Value = 0
+$progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Continuous
+$progressBar.Visible = $false
+$form.Controls.Add($progressBar)
+
+$lblPercent = New-Object System.Windows.Forms.Label
+$lblPercent.Text = ""
+$lblPercent.ForeColor = $accent2
+$lblPercent.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$lblPercent.Location = New-Object System.Drawing.Point(490, 356)
+$lblPercent.Size = New-Object System.Drawing.Size(40, 20)
+$lblPercent.Visible = $false
+$form.Controls.Add($lblPercent)
 
 $lblLogTitle = New-Object System.Windows.Forms.Label
 $lblLogTitle.Text = "Status (live)"
 $lblLogTitle.ForeColor = $muted
-$lblLogTitle.Location = New-Object System.Drawing.Point(28, 360)
+$lblLogTitle.Location = New-Object System.Drawing.Point(28, 384)
 $lblLogTitle.AutoSize = $true
 $form.Controls.Add($lblLogTitle)
 
@@ -228,7 +294,7 @@ $statusBox.ReadOnly = $true
 $statusBox.BackColor = [System.Drawing.Color]::FromArgb(18, 20, 26)
 $statusBox.ForeColor = $text
 $statusBox.Font = New-Object System.Drawing.Font("Consolas", 9)
-$statusBox.Location = New-Object System.Drawing.Point(24, 382)
+$statusBox.Location = New-Object System.Drawing.Point(24, 404)
 $statusBox.Size = New-Object System.Drawing.Size(500, 160)
 $statusBox.BorderStyle = "FixedSingle"
 $form.Controls.Add($statusBox)
@@ -236,13 +302,12 @@ $form.Controls.Add($statusBox)
 $lblStatus = New-Object System.Windows.Forms.Label
 $lblStatus.Text = "Checking..."
 $lblStatus.ForeColor = $muted
-$lblStatus.Location = New-Object System.Drawing.Point(24, 554)
+$lblStatus.Location = New-Object System.Drawing.Point(24, 576)
 $lblStatus.AutoSize = $true
 $form.Controls.Add($lblStatus)
 
 $script:busy = $false
 
-# ---------- Process Once: run INLINE so every step shows in Status ----------
 $btnProcess.Add_Click({
     Start-HTJob -BusyMsg "Preparing..." -Work {
         if (-not (Test-HTImage $Paths)) {
@@ -265,11 +330,16 @@ $btnProcess.Add_Click({
         Append-Status "Found $($files.Count) file(s) to process" "INFO"
         $ok = 0; $fail = 0; $n = $files.Count; $i = 0
 
+        # Progress uses steps: start + finish per file => 2*n
+        $totalSteps = [Math]::Max(1, $n * 2)
+        Set-Progress -Value 0 -Maximum $totalSteps -Caption "Starting..."
+
         foreach ($file in $files) {
             $i++
-            $lblBusy.Text = "Processing $($file.Name)  ($i of $n) - Docker running, please wait..."
+            $step = ($i - 1) * 2
+            Set-Progress -Value $step -Maximum $totalSteps `
+                -Caption "Processing $($file.Name)  ($i of $n)..."
             Append-Status "[$i/$n] Start: $($file.Name)" "INFO"
-            [System.Windows.Forms.Application]::DoEvents()
 
             $cfg = @{ OpenExcel = [bool]$chkExcel.Checked }
             $sw = [System.Diagnostics.Stopwatch]::StartNew()
@@ -283,6 +353,9 @@ $btnProcess.Add_Click({
             $sw.Stop()
             $sec = [math]::Round($sw.Elapsed.TotalSeconds, 1)
 
+            Set-Progress -Value ($step + 1) -Maximum $totalSteps `
+                -Caption "Finished $($file.Name) ($i of $n)"
+
             if ($success) {
                 $ok++
                 Append-Status "[$i/$n] Done: $($file.Name) (${sec}s) -> output_$([IO.Path]::GetFileNameWithoutExtension($file.Name)).xlsx" "OK"
@@ -290,17 +363,17 @@ $btnProcess.Add_Click({
                 $fail++
                 Append-Status "[$i/$n] Failed: $($file.Name) (${sec}s)" "ERROR"
             }
-            [System.Windows.Forms.Application]::DoEvents()
         }
 
+        Set-Progress -Value $totalSteps -Maximum $totalSteps -Caption "Complete"
         Append-Status "Finished — OK: $ok | Failed: $fail" "OK"
         if ($ok -gt 0) {
             Append-Status "Open Output Folder to see Excel files" "INFO"
         }
+        Start-Sleep -Milliseconds 400
     }
 })
 
-# ---------- Setup / Rebuild: visible console + live elapsed + log tail ----------
 function Start-SetupScript {
     param([switch]$Rebuild)
     $argList = [System.Collections.ArrayList]@("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "setup.ps1"))
@@ -355,7 +428,7 @@ $btnLog.Add_Click({
 $form.Add_Shown({
     Update-StatusBar
     Append-Status "Ready - put .txt in Input, then click Process Once" "INFO"
-    Append-Status "Status panel updates live while processing." "INFO"
+    Append-Status "Progress bar + status update live while working." "INFO"
 })
 
 $iconPath = Join-Path $Paths.ProjectRoot "assets\app.ico"
