@@ -1,95 +1,16 @@
 #!/usr/bin/env python3
-"""Restore assets/app.ico for Windows GUI (from app.ico.b64 or Pillow)."""
+"""Restore assets/app.ico for Windows GUI."""
 from pathlib import Path
 import base64
-import sys
 
 ROOT = Path(__file__).resolve().parent
-
-
-def from_b64() -> bool:
-    data_path = ROOT / "app.ico.b64"
-    if not data_path.exists():
-        return False
-    (ROOT / "app.ico").write_bytes(base64.b64decode(data_path.read_text().strip()))
-    return True
-
-
-def from_pillow() -> bool:
-    try:
-        from PIL import Image, ImageDraw
-        import struct
-        import io
-    except ImportError:
-        return False
-
-    def make_icon(size: int):
-        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-        d = ImageDraw.Draw(img)
-        margin = max(1, size // 16)
-        bg = (36, 40, 48, 255)
-        accent = (88, 166, 255, 255)
-        green = (63, 185, 80, 255)
-        amber = (210, 153, 34, 255)
-        d.rounded_rectangle(
-            [margin, margin, size - margin - 1, size - margin - 1],
-            radius=max(2, size // 5),
-            fill=bg,
-        )
-        d.rounded_rectangle(
-            [margin, margin, size - margin - 1, margin + max(4, size // 4)],
-            radius=max(2, size // 8),
-            fill=accent,
-        )
-        y0 = size // 2 + max(2, size // 16)
-        for i, col in enumerate([accent, green, amber]):
-            y = y0 + i * max(4, size // 8)
-            th = max(2, size // 14)
-            if y + th < size - margin:
-                d.rounded_rectangle(
-                    [size // 4, y, size - size // 4, y + th],
-                    radius=max(1, th // 2),
-                    fill=col,
-                )
-        r = max(2, size // 12)
-        d.ellipse(
-            [size - margin - 2 * r - 1, margin + 2, size - margin - 1, margin + 2 + 2 * r],
-            fill=green,
-        )
-        return img
-
-    sizes = [16, 32, 48, 64, 128, 256]
-    pngs = []
-    for s in sizes:
-        buf = io.BytesIO()
-        make_icon(s).save(buf, format="PNG")
-        pngs.append((s, buf.getvalue()))
-    num = len(pngs)
-    header = struct.pack("<HHH", 0, 1, num)
-    entries, blobs = [], []
-    offset = 6 + 16 * num
-    for s, data in pngs:
-        w = 0 if s >= 256 else s
-        h = 0 if s >= 256 else s
-        entries.append(struct.pack("<BBBBHHII", w, h, 0, 0, 1, 32, len(data), offset))
-        blobs.append(data)
-        offset += len(data)
-    ico = header + b"".join(entries) + b"".join(blobs)
-    (ROOT / "app.ico").write_bytes(ico)
-    (ROOT / "app.ico.b64").write_text(base64.b64encode(ico).decode("ascii"))
-    make_icon(256).save(ROOT / "app.png")
-    return True
+ICO_B64 = """AAABAAYAEBAAAAEAIADDAAAAZgAAACAgAAABACAAOQEAACkBAAAwMAAAAQAgAKEBAABiAgAAQEAAAAEAIAD0AQAAAwQAAICAAAABACAAmAMAAPcFAAAAAAAAAQAgAPwGAACPCQAAiVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAiklEQVR4nGNgoBAwwhgRy/7/J0XjiihGRgYGBgYmcjQj62EhRdNz4UA4W/Ltega4C0jVjMxnYmBgYDjTZEiKQ1AA3AuEDJGeqIBVnGgvPM1/gJVPUiCiG0KSC3ABrC4wqTuPUwN6WGG4AJ9mbPIYBhCKDXR5eF5Q0TAgKTnfuXEBkReQBUjRTBUAAPAQLCFFmRh+AAAAAElFTkSuQmCCiVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABAElEQVR4nGNgGOmAEZtgxLL//2lh2YooRgz7UARoZTE+h7DQw0IGBgaG58KBWMWZYAxa+h7dcvudAXC7mDBU0xkMHgecaTKkmSWSb9ej8J/mP4Cz6ZYIkR3xlAHhWRQHwELBpO48TRyBLZSxhgAtowMdDJ5EOOqAUQcMFCCqIKKkXCCUpQmGAKWFEiH9BB1AaaFESD9RUUDLkpEoB0hPVCDbAuSaDxsgGAWUWE6MfoIOIOQDSvUTFQWUOgIfQGmWq2gYYG2Yriv8RLYFQf18GGJ3blyA28uES4IalmPTj24HRhpAV4DNB6QAZP3YPIi1a8bAgDs6yAXYLB8FDAwMDAB3HE8WIkzAngAAAABJRU5ErkJggolQTkcNChoKAAAADUlIRFIAAAAwAAAAMAgGAAAAVwL5hwAAAWhJREFUeJztmD8OAUEUxmdFrVFtNAqFksQd1FTiEuICChcQlxCVdQW9hFKh0IhqGxdYlbWz888bM+bNZn6VmDX5vvnmvTxLSCDwE5FscbLJsn8JkbGdRkKdNdECFvGEyLVwnWER/2iO8s9xmnCTYL7AIL4ovMxhuKc0U1cIg3gVZY3CGnCF7PR56+gMQAkGTBOnCWidMnBc9s0rMkxZI5MABhNxmjAnHacJuc9uzLNUT+10e3mLGixOluTpUTzY6+Wc6xbWAIYk3si01HV/iAV0XQhKMOCaYMA1wYBrggHXeG9AOkqIsDnoQccXcAK2p1To/t5fIbAB2xMqdH+tGsA0Znt/hbQSaK3bhmV84P3vlQFOwKZ4nf29v0JgA9CIbe+vVQO2TUCgEii+b8FKWaNWArv504waDuNVA/Q8UwOqFGyKV+3P01bNLiRLARoxFNH+Ik3Koi2+8HWB6kp/3XX+bcSHjhioBC+FhnBpL3tYBAAAAABJRU5ErkJggolQTkcNChoKAAAADUlIRFIAAABAAAAAQAgGAAAAqmlx3gAAAbtJREFUeJztmi1OBEEQhWsJGoParEEgkJDgkdgFRbgE4QIILkC4BEGxa5F4EpAIBIag1nCBQbVgpqv/quFt19Qn56e73ut6vTuTITIMY8xMUi88u+u6vyykNvfnkyRt0YtaE94nZkTwZIviv7ZPBseejpeszg3uhBbxRERHj3NWi9cATeIdnAlsB7RETLzDZ8LAgBZXX4KKDpBgBqALQKPCgOlqUXzdwIDn6wN5RQBiJkxXC682FR3g4EwImTP4i7i7t98RER1evdSqay1wq//+9vpLM9sBrUbBR0hLMAIaTIhp2EwdoLVIpC5e1IDcAVtD1a9ACWYAugA0ZgC6ADRmALoANGYAugA0ZgC6ADRmALoANKM3IPlxOATyXYH0MV3cAegXJdL5Rx8BM0A6APpVmXT+Kpsg2gQJFgF0AWiqRGB2u1NjmCI+Lz5E94s7ACm+xvyjj4AZIB1AmkH0/FU2QbQJEiwC/QP9Lyg04dNWJQIPl981hini9GZLdL83AjldgBSfMz+nyfYA7oSmvSCkJdgBKSZIMyglNn9MQ9Iqu28HWyNlAbPavBUjcuJblPN1NULTvmUYxv/wAxXegTPfwZg1AAAAAElFTkSuQmCCiVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAADX0lEQVR4nO3cr24UYRSG8bMEjUERDKKisiR4JBZQhJsg3ACCGyDcBEFBLRJPQmVFBYagMNzAoiZpGtiZ7+952/f5Weh0vznPfLOzhUYAAAAAAAAXuxEHffFhvx9xXHcfX+66z6vbARn6XL1iaD4Ig5/j191n//2zr09Oq+fYFADDH+/Q4K+qCaEqAAY/R8nwF6UR3Cr9Bgx/jprhR0Q8/vK0aD7FAWC82uEvSiIoCoCrf7zW4S+2RrA5AIZ/M3ELENLr6l9s2QU2BcDVf3OxA5gjAHOrAbD932zsAOYIwBwBCLn3+/P04xGAOQIQ02sX2HocAhDUGkHJ168GMOLfoWFdbQSXv27L7FYDODo+4XOAJKURXP37W2Z3u+wlYbZlqId+UNRyy1jdIpaKHr35Xv1NMN+3tw8jotu9/Oj4ZN/rWFjX68Lr9hjIG8N5ep7rIUNjNxhjxEU29KolhD5G7q5Ttm1CqDPjtppy3yaIf+N9FAAAAAAAGOkvguT97htl/3wAAAAASUVORK5CYIKJUE5HDQoaCgAAAA1JSERSAAABAAAAAQAIBgAAAFxyqGYAAAbDSURBVHic7d2vjlxlHMfhs6Qag2owiIrKNqlHYgFFehOEG6joDRBuglQBFolv0sqKCgxB1XADi9g9ydnJdHa38/493+fRZPrunPl9znvO/GFZAAAAAAAAAAAAAAAAAAAAgNFc9F7Affzw6+Vl7zXAbV49v5hmroZeqIFnD0YOwnALM/Tswb9ffHfrf/PXN390n7/uC1gZfGZ3l6H/mF4x6B4Ag8/szhn8Q61D0DUAhp+ZlRz8Q61C0CUABp/Z1Rz+VYsINA+A4WdmLQb/UM0QfFbrgY8x/Mysx/Avy7J8/ee31eamWQAMPzPrNfyrWhFoEgDDD2OqHgDDz+x6n/1XNXYBVQNg+JndKMO/Kh2BagEw/DC+pu8CwExGO/uvSu4CqgTA2R/mUDwAhp89GPXsvyq1C3AJAMGKBsDZH+ZiBwAHRt/+r0pcBhQLgLM/zMcOAIIJAAQrEgDbf5iTHQAEEwAIJgAQ7OwAuP6HedkBwIGHH37vvYQ7KbFOAYBgAgDBBACOGP0yoNT6BACCCQB8xKi7gJLrEgAIJgBwwmi7gNLrEQC4xSgRqLEOAYBgZwfg1fOL5v+LcWit9y7g2L9fYvbsAOCOekWg5r/7oNojww6tw9jih0NbBMcOAD5B7eFstdsoEoDXL5+WeBiYysMPvxcf1Ls+ZqmZcwkAZypxWdDr/sLZAXj0+IkfBIHl5hDfJQbnDv2jx08u3797e9Y7AWe/jbANwLMXb859OOAW2+3/uQFwExCCFQ2Am4FQV+kZswOAYMUDYBcAddSYrSo7ABGAsmrNlEsACFYtAHYBUEbNWaq6AxABOE/tGap+CSAC8GlazE6TewAiAPfTamaa3QQUAbiblrPS9F0AEYDTWs9I87cBRQCO6zEbXX4PYP1DfXsQ+p4Uu34QyG6AdL1noPsvAtkNkKj34K+6B2AlBCQYZfBXwwRgtX2CxIA9GG3ot4YLwNbhEycIzGDkgT80dAAOzfTEwgx8HRiCCQAEEwAIJgAQTAAgmABAMAGAYAIAwQQAggkABBMACCYAEEwAIJgAQDABgGACAMEEAIIJAAQTAAgmABBMACCYAEAwAYBgAgDBBACCCQAEEwAIJgAQTAAgmABAMAGAYAIAwQQAggkABBMACCYAEEwAIJgAQDABgGACAMEEAIIJAAQTAAgmABBMACCYAEAwAYBgAgDBBACCCQAEEwAIJgAQTAAgmABAMAGAYAIAwQQAggkABBMACCYAEEwAIJgAQLAHvRcwsmcv3vReAoW8fvm09xKGJABHGPz9WY+pENwkABsGf/+E4Cb3AK4Z/iyO9xUBgGACsDgbpHLcBQCixQfAWSBb+vGPDwAkEwAIJgAQTAAgWHwAfCIsW/rxjw8AJBOAxVkgleMuABBNAK45G2RxvK/4OvDG+uJI/3TYnhn8mwTgCCHYH4N/nACc4EXD3rkHAMEEAIIJAAQTAAgmABBMACCYAEAwAYBgAgDBBACCCQAEEwAI5stAJ3z5y1e9l0Ah//z4d+8lDEkAjjD4+7MeUyG4SQA2DP7+CcFN7gFcM/xZHO8rAgDBBGBxNkjluAsARIsPgLNAtvTjHx8ASCYAEEwAIJgAQLD4APhEWLb04x8fAEgmAIuzQCrHXQAgmgBcczbI4nhf8XXgjfVFkf7psD0z+DcJwBFCsD8G/zgBOMGLhr07+x7A+3dvL0osBLifErPnJiAEEwAIJgAQTAAgWJEAuBEIbZWaOTsACCYAEKxYAFwGQBslZ80OAIIJAAQrGgCXAVBX6RnzZaATfvvpv95LoJDvf/689xKGVOWM/ejxk8saj9uKwd+vmUNQY4dtB7Bh8PdvPcYzh6AkNwGvGf4sjveVKgFwMxDKqjVT1XYAM0XA2SDTLMe95iy5BIBgVQMwwy5glrMAdYx+/GvPkB0ABKsegBl2ATCiFrPTZAcgAnA/rWam2SWACMDdtJyV+HsAPhGWLf34Nw2AXQCc1npGmu8ARoxA+lkg1WjHvcdsdLkEGDEC0FOvmeh2D2C0CIx2NqCukY53z1noPoQj/nbA6J8O49ONNPjL0v9E2D0AyzJmBJZFCPZktMFflv7DvyyDBGBZxo0A1DDC8C/LQJ8DGOUJgdpGeq0Ps5AtuwH2aKTBXw2zA9ga8YmCc4z6mh4yAMsy7hMG9zXya3nYhW25JGBGIw/+avgFbgkBM5hh8FfDXgIcM9MTS6bZXqNTLfaQHQEjmG3ot6Zd+JYQ0MPMg7+a/g84JAbUtIeh39rVH3NIDChhb0O/tds/7GNEgVP2POwAAAAAAAAAAAAAAAAAAADAHP4HzoLk11suRiwAAAAASUVORK5CYII="""
 
 
 def main() -> None:
-    if from_b64():
-        print("OK", ROOT / "app.ico")
-        return
-    if from_pillow():
-        print("OK generated", ROOT / "app.ico")
-        return
-    print("Missing app.ico.b64 and Pillow.", file=sys.stderr)
-    sys.exit(1)
+    path = ROOT / "app.ico"
+    path.write_bytes(base64.b64decode(ICO_B64))
+    print("OK", path, path.stat().st_size)
 
 
 if __name__ == "__main__":
