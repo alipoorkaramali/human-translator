@@ -1,5 +1,5 @@
 # ============================================================
-# run-once.ps1 - پردازش یک‌بار همه فایل‌های data/input
+# run-once.ps1 - Process all .txt files in data/input once
 #   .\scripts\run-once.ps1
 #   .\scripts\run-once.ps1 -OpenExcel
 # ============================================================
@@ -14,17 +14,17 @@ Set-Location $Paths.ProjectRoot
 Ensure-HTDirs $Paths
 
 Write-Host ""
-Write-Host "╔══════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  Text Processor - One Shot                          ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "======================================================" -ForegroundColor Cyan
+Write-Host "  Text Processor - One Shot" -ForegroundColor Cyan
+Write-Host "======================================================" -ForegroundColor Cyan
 Write-Host ""
 
 if (-not (Test-HTImage $Paths)) {
-    Write-HTLog "ایمیج نیست. اول setup.bat" "ERROR" $Paths
-    Read-Host "Enter"; exit 1
+    Write-HTLog "Docker image missing. Run setup.bat first." "ERROR" $Paths
+    Read-Host "Press Enter"; exit 1
 }
 if (-not (Test-Path $Paths.BookFile)) {
-    Write-HTLog "Book1.xlsx پیدا نشد" "ERROR" $Paths
+    Write-HTLog "Book1.xlsx not found" "ERROR" $Paths
     exit 1
 }
 
@@ -32,15 +32,15 @@ $files = @(Get-ChildItem -Path $Paths.InputDir -Filter "*.txt" -ErrorAction Sile
     Where-Object { $_.Name -notlike "~*" -and $_.Name -notlike "_smoke*" -and $_.Length -gt 0 })
 
 if ($files.Count -eq 0) {
-    Write-HTLog "هیچ فایل .txt معتبری در data\input نیست" "WARN" $Paths
-    Read-Host "Enter"; exit 0
+    Write-HTLog "No valid .txt files in data\input" "WARN" $Paths
+    Read-Host "Press Enter"; exit 0
 }
 
-Write-HTLog "تعداد فایل: $($files.Count)" "INFO" $Paths
+Write-HTLog "File count: $($files.Count)" "INFO" $Paths
 $ok = 0; $fail = 0
 
 foreach ($file in $files) {
-    Write-Host "────────────────────────────────────────" -ForegroundColor DarkGray
+    Write-Host "----------------------------------------" -ForegroundColor DarkGray
     if (Invoke-HTProcessFile -FilePath $file.FullName -Paths $Paths -Config $Config -OpenExcel:$OpenExcel) {
         $ok++
     } else {
@@ -49,8 +49,8 @@ foreach ($file in $files) {
 }
 
 Write-Host ""
-Write-HTLog "پایان — موفق: $ok | ناموفق: $fail" "OK" $Paths
-Write-Host "📂 $($Paths.OutputDir)" -ForegroundColor Cyan
+Write-HTLog "Done - OK: $ok | Failed: $fail" "OK" $Paths
+Write-Host "Output: $($Paths.OutputDir)" -ForegroundColor Cyan
 
 if ($Config.OpenFolder) {
     try { Start-Process explorer.exe $Paths.OutputDir } catch { }

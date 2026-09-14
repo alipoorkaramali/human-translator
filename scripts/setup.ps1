@@ -1,5 +1,5 @@
 # ============================================================
-# setup.ps1 - نصب اولیه (ویندوز / آفلاین)
+# setup.ps1 - First-time / rebuild setup (Windows offline)
 #   .\scripts\setup.ps1
 #   .\scripts\setup.ps1 -Rebuild
 #   .\scripts\setup.ps1 -SkipSmoke
@@ -18,22 +18,22 @@ Set-Location $Paths.ProjectRoot
 Ensure-HTDirs $Paths
 
 Write-Host ""
-Write-Host "╔══════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  Text Processor - Setup (Windows Offline)           ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-Write-Host "📁 $($Paths.ProjectRoot)" -ForegroundColor DarkGray
+Write-Host "======================================================" -ForegroundColor Cyan
+Write-Host "  Text Processor - Setup (Windows Offline)" -ForegroundColor Cyan
+Write-Host "======================================================" -ForegroundColor Cyan
+Write-Host "Root: $($Paths.ProjectRoot)" -ForegroundColor DarkGray
 Write-Host ""
 
-Write-HTLog "بررسی Docker..." "INFO" $Paths
+Write-HTLog "Checking Docker..." "INFO" $Paths
 if (-not (Test-HTDocker $Paths)) {
-    Write-HTLog "Docker Desktop نصب/اجرا نیست." "ERROR" $Paths
+    Write-HTLog "Docker Desktop is not installed or not running." "ERROR" $Paths
     Write-Host "   https://www.docker.com/products/docker-desktop/" -ForegroundColor Yellow
     exit 1
 }
-Write-HTLog "Docker آماده است" "OK" $Paths
+Write-HTLog "Docker is ready" "OK" $Paths
 
 if (-not (Test-Path $Paths.BookFile)) {
-    Write-HTLog "Book1.xlsx پیدا نشد: $($Paths.BookFile)" "ERROR" $Paths
+    Write-HTLog "Book1.xlsx not found: $($Paths.BookFile)" "ERROR" $Paths
     exit 1
 }
 Write-HTLog "Book1.xlsx OK" "OK" $Paths
@@ -49,55 +49,55 @@ function Test-NltkReady {
 }
 
 if (-not (Test-NltkReady)) {
-    Write-HTLog "nltk_data ناقص — تلاش برای دانلود..." "WARN" $Paths
+    Write-HTLog "nltk_data incomplete - trying download..." "WARN" $Paths
     $py = Get-Command python -ErrorAction SilentlyContinue
     if (-not $py) { $py = Get-Command py -ErrorAction SilentlyContinue }
     if ($py) {
         $env:NLTK_DATA = $Paths.NltkData
         & $py.Source (Join-Path $Paths.ScriptDir "download_nltk.py")
-        if ($LASTEXITCODE -ne 0) { Write-HTLog "دانلود NLTK ناموفق" "ERROR" $Paths; exit 1 }
+        if ($LASTEXITCODE -ne 0) { Write-HTLog "NLTK download failed" "ERROR" $Paths; exit 1 }
     } else {
-        Write-HTLog "Python برای دانلود NLTK پیدا نشد. nltk_data را دستی بگذار." "ERROR" $Paths
+        Write-HTLog "Python not found for NLTK download. Place nltk_data manually." "ERROR" $Paths
         exit 1
     }
 }
-if (-not (Test-NltkReady)) { Write-HTLog "nltk_data هنوز ناقص است" "ERROR" $Paths; exit 1 }
+if (-not (Test-NltkReady)) { Write-HTLog "nltk_data still incomplete" "ERROR" $Paths; exit 1 }
 Write-HTLog "nltk_data OK" "OK" $Paths
 
 if (-not (Test-Path $Paths.Dockerfile)) {
-    Write-HTLog "Dockerfile.offline پیدا نشد" "ERROR" $Paths
+    Write-HTLog "Dockerfile.offline not found" "ERROR" $Paths
     exit 1
 }
 
 $hasImage = Test-HTImage $Paths
 if ($hasImage -and -not $Rebuild) {
-    Write-HTLog "ایمیج '$($Paths.ImageName)' موجود است (Rebuild با -Rebuild)" "OK" $Paths
+    Write-HTLog "Image '$($Paths.ImageName)' already exists (use -Rebuild to rebuild)" "OK" $Paths
 } else {
     if ($Rebuild -and $hasImage) {
-        Write-HTLog "حذف ایمیج قبلی..." "INFO" $Paths
+        Write-HTLog "Removing old image..." "INFO" $Paths
         docker rmi $Paths.ImageName 2>$null | Out-Null
     }
-    Write-HTLog "ساخت ایمیج آفلاین (چند دقیقه)..." "INFO" $Paths
+    Write-HTLog "Building offline image (may take a few minutes)..." "INFO" $Paths
     docker build -f docker/Dockerfile.offline -t $Paths.ImageName .
-    if ($LASTEXITCODE -ne 0) { Write-HTLog "docker build شکست خورد" "ERROR" $Paths; exit 1 }
-    Write-HTLog "ایمیج ساخته شد" "OK" $Paths
+    if ($LASTEXITCODE -ne 0) { Write-HTLog "docker build failed" "ERROR" $Paths; exit 1 }
+    Write-HTLog "Image built" "OK" $Paths
 }
 
 if ($Config.SmokeTest -and -not $SkipSmoke) {
-    Write-HTLog "Smoke test روی ایمیج..." "INFO" $Paths
+    Write-HTLog "Running smoke test..." "INFO" $Paths
     if (Invoke-HTSmokeTest $Paths) {
-        Write-HTLog "Smoke test موفق" "OK" $Paths
+        Write-HTLog "Smoke test passed" "OK" $Paths
     } else {
-        Write-HTLog "Smoke test ناموفق — با -Rebuild دوباره بساز" "ERROR" $Paths
+        Write-HTLog "Smoke test failed - try setup.bat -Rebuild" "ERROR" $Paths
         exit 1
     }
 }
 
 Write-Host ""
-Write-Host "╔══════════════════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║  Setup کامل شد                                      ║" -ForegroundColor Green
-Write-Host "╚══════════════════════════════════════════════════════╝" -ForegroundColor Green
-Write-Host "  watch.bat   → رصد خودکار" -ForegroundColor White
-Write-Host "  process.bat → پردازش یک‌بار" -ForegroundColor White
-Write-Host "  لاگ: data\output\processor.log" -ForegroundColor DarkGray
+Write-Host "======================================================" -ForegroundColor Green
+Write-Host "  Setup complete" -ForegroundColor Green
+Write-Host "======================================================" -ForegroundColor Green
+Write-Host "  watch.bat   -> auto watch" -ForegroundColor White
+Write-Host "  process.bat -> process once" -ForegroundColor White
+Write-Host "  Log: data\output\processor.log" -ForegroundColor DarkGray
 Write-Host ""

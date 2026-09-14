@@ -1,5 +1,5 @@
 # ============================================================
-# watch.ps1 - رصد خودکار data/input
+# watch.ps1 - Watch data/input and process new/changed .txt files
 #   .\scripts\watch.ps1
 #   .\scripts\watch.ps1 -OpenExcel
 # ============================================================
@@ -14,27 +14,27 @@ Set-Location $Paths.ProjectRoot
 Ensure-HTDirs $Paths
 
 if (-not (Test-HTImage $Paths)) {
-    Write-HTLog "ایمیج نیست. اول setup.bat را اجرا کن." "ERROR" $Paths
-    Read-Host "Enter"; exit 1
+    Write-HTLog "Docker image missing. Run setup.bat first." "ERROR" $Paths
+    Read-Host "Press Enter"; exit 1
 }
 if (-not (Test-Path $Paths.BookFile)) {
-    Write-HTLog "Book1.xlsx پیدا نشد" "ERROR" $Paths
-    Read-Host "Enter"; exit 1
+    Write-HTLog "Book1.xlsx not found" "ERROR" $Paths
+    Read-Host "Press Enter"; exit 1
 }
 
 Clear-Host
-Write-Host "╔══════════════════════════════════════════════════════╗" -ForegroundColor Magenta
-Write-Host "║  Text Processor - Watch Mode                        ║" -ForegroundColor Magenta
-Write-Host "╚══════════════════════════════════════════════════════╝" -ForegroundColor Magenta
-Write-Host "📂 $($Paths.InputDir)" -ForegroundColor Cyan
-Write-Host "📂 $($Paths.OutputDir)" -ForegroundColor Cyan
-Write-Host "📝 لاگ: $($Paths.LogFile)" -ForegroundColor DarkGray
+Write-Host "======================================================" -ForegroundColor Magenta
+Write-Host "  Text Processor - Watch Mode" -ForegroundColor Magenta
+Write-Host "======================================================" -ForegroundColor Magenta
+Write-Host "Input:  $($Paths.InputDir)" -ForegroundColor Cyan
+Write-Host "Output: $($Paths.OutputDir)" -ForegroundColor Cyan
+Write-Host "Log:    $($Paths.LogFile)" -ForegroundColor DarkGray
 if ($OpenExcel -or $Config.OpenExcel) {
-    Write-Host "📊 OpenExcel: روشن" -ForegroundColor Yellow
+    Write-Host "OpenExcel: ON" -ForegroundColor Yellow
 } else {
-    Write-Host "📊 OpenExcel: خاموش (watch.bat -OpenExcel)" -ForegroundColor DarkGray
+    Write-Host "OpenExcel: OFF (use watch.bat -OpenExcel)" -ForegroundColor DarkGray
 }
-Write-Host "خروج: Ctrl+C" -ForegroundColor Yellow
+Write-Host "Stop: Ctrl+C" -ForegroundColor Yellow
 Write-Host ""
 
 $fileStates = @{}
@@ -42,7 +42,7 @@ Get-ChildItem -Path $Paths.InputDir -Filter "*.txt" -ErrorAction SilentlyContinu
     $fileStates[$_.FullName] = $_.LastWriteTimeUtc
 }
 
-Write-HTLog "رصد شروع شد" "OK" $Paths
+Write-HTLog "Watch started" "OK" $Paths
 
 try {
     while ($true) {
@@ -74,12 +74,12 @@ try {
                 continue
             }
             if ($item.Length -eq 0) {
-                Write-HTLog "فایل خالی نادیده: $($item.Name)" "WARN" $Paths
+                Write-HTLog "Empty file ignored: $($item.Name)" "WARN" $Paths
                 continue
             }
             $null = Invoke-HTProcessFile -FilePath $fp -Paths $Paths -Config $Config -OpenExcel:$OpenExcel
         }
     }
 } finally {
-    Write-HTLog "رصد متوقف شد" "INFO" $Paths
+    Write-HTLog "Watch stopped" "INFO" $Paths
 }

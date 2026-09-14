@@ -1,5 +1,6 @@
 # ============================================================
-# common.ps1 - توابع مشترک اسکریپت‌های ویندوز
+# common.ps1 - Shared helpers for Windows offline scripts
+# ASCII-only messages (safe for Windows PowerShell 5.1)
 # ============================================================
 
 $script:HT_ImageName = "text-processor"
@@ -138,13 +139,13 @@ function Invoke-HTProcessFile {
     $baseName = [System.IO.Path]::GetFileNameWithoutExtension($fileName)
 
     if (Test-FileLocked $Paths $fileName) {
-        Write-HTLog "رد شد (در حال پردازش): $fileName" "WARN" $Paths
+        Write-HTLog "Skipped (already processing): $fileName" "WARN" $Paths
         return $false
     }
 
     Set-FileLock $Paths $fileName
     try {
-        Write-HTLog "شروع پردازش: $fileName" "INFO" $Paths
+        Write-HTLog "Processing: $fileName" "INFO" $Paths
 
         $tempExcel = Join-Path $Paths.OutputDir "output.xlsx"
         $tempTxt   = Join-Path $Paths.OutputDir "output.txt"
@@ -157,8 +158,7 @@ function Invoke-HTProcessFile {
         $dockerSrcPath  = Get-DockerPath $Paths.SrcDir
         $containerInput = "data/input/$fileName"
 
-        # src و Book1 از میزبان mount می‌شوند تا تغییر قوانین/داده
-        # بدون rebuild ایمیج بلافاصله اعمال شود.
+        # Mount src + Book1 so rule/data changes apply without image rebuild.
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
         $dockerArgs = @(
             "run", "--rm",
@@ -177,7 +177,7 @@ function Invoke-HTProcessFile {
             $s = "$line"
             if ($s -match "ERROR") { Write-HTLog $s "ERROR" $Paths }
             elseif ($s -match "WARNING") { Write-HTLog $s "WARN" $Paths }
-            elseif ($s -match "INFO|✅") { Write-HTLog $s "INFO" $Paths }
+            elseif ($s -match "INFO|OK") { Write-HTLog $s "INFO" $Paths }
         }
 
         if ($exitCode -eq 0) {
@@ -187,7 +187,7 @@ function Invoke-HTProcessFile {
             if (Test-Path $tempTxt)   { Move-Item -Force $tempTxt $newTxt }
 
             $sec = [math]::Round($sw.Elapsed.TotalSeconds, 2)
-            Write-HTLog "موفق (${sec}s) → output_${baseName}.xlsx" "OK" $Paths
+            Write-HTLog "OK (${sec}s) -> output_${baseName}.xlsx" "OK" $Paths
 
             $shouldOpen = $OpenExcel -or ($Config -and $Config.OpenExcel)
             if ($shouldOpen -and (Test-Path $newExcel)) {
@@ -195,7 +195,7 @@ function Invoke-HTProcessFile {
             }
             return $true
         } else {
-            Write-HTLog "شکست پردازش $fileName (exit=$exitCode)" "ERROR" $Paths
+            Write-HTLog "Failed: $fileName (exit=$exitCode)" "ERROR" $Paths
             return $false
         }
     } finally {

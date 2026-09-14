@@ -1,6 +1,7 @@
 # ============================================================
-# gui.ps1 - داشبورد گرافیکی Text Processor (WinForms)
-# بدون وابستگی خارجی — فقط .NET داخلی ویندوز
+# gui.ps1 - Text Processor dashboard (WinForms)
+# No extra deps - Windows built-in .NET only
+# ASCII-only UI strings (safe for Windows PowerShell 5.1)
 # ============================================================
 
 $ErrorActionPreference = "Stop"
@@ -14,7 +15,6 @@ $Config = Get-HTConfig $Paths
 Ensure-HTDirs $Paths
 Set-Location $Paths.ProjectRoot
 
-# ---------- پالت رنگ ----------
 $bg       = [System.Drawing.Color]::FromArgb(24, 26, 32)
 $panelBg  = [System.Drawing.Color]::FromArgb(36, 40, 48)
 $accent   = [System.Drawing.Color]::FromArgb(88, 166, 255)
@@ -54,10 +54,10 @@ function Append-Status {
     param([string]$Msg, [string]$Level = "INFO")
     $ts = Get-Date -Format "HH:mm:ss"
     $prefix = switch ($Level) {
-        "OK"    { "✓" }
-        "ERROR" { "✗" }
-        "WARN"  { "!" }
-        default { "·" }
+        "OK"    { "[OK]" }
+        "ERROR" { "[ERR]" }
+        "WARN"  { "[!]" }
+        default { "[...]" }
     }
     $line = "[$ts] $prefix $Msg"
     $statusBox.AppendText("$line`r`n")
@@ -72,10 +72,10 @@ function Update-StatusBar {
     $bookOk   = Test-Path $Paths.BookFile
 
     $parts = @()
-    if ($dockerOk) { $parts += "Docker ✓" } else { $parts += "Docker ✗" }
-    if ($imageOk)  { $parts += "Image ✓" } else { $parts += "Image ✗" }
-    if ($bookOk)   { $parts += "Book1 ✓" } else { $parts += "Book1 ✗" }
-    $lblStatus.Text = ($parts -join "   ·   ")
+    if ($dockerOk) { $parts += "Docker OK" } else { $parts += "Docker missing" }
+    if ($imageOk)  { $parts += "Image OK" } else { $parts += "Image missing" }
+    if ($bookOk)   { $parts += "Book1 OK" } else { $parts += "Book1 missing" }
+    $lblStatus.Text = ($parts -join "  |  ")
     if ($dockerOk -and $imageOk -and $bookOk) {
         $lblStatus.ForeColor = $accent2
     } elseif ($dockerOk) {
@@ -98,21 +98,20 @@ function Set-Busy([bool]$On, [string]$Msg = "") {
 function Start-HTJob {
     param([scriptblock]$Work, [string]$BusyMsg)
     if ($script:busy) {
-        Append-Status "یک کار در حال اجراست — صبر کن." "WARN"
+        Append-Status "A job is already running - wait." "WARN"
         return
     }
     Set-Busy $true $BusyMsg
     try {
         & $Work
     } catch {
-        Append-Status "خطا: $($_.Exception.Message)" "ERROR"
+        Append-Status "Error: $($_.Exception.Message)" "ERROR"
     } finally {
         Set-Busy $false
         Update-StatusBar
     }
 }
 
-# ---------- فرم ----------
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Human Translator"
 $form.Size = New-Object System.Drawing.Size(560, 620)
@@ -144,18 +143,18 @@ $panel.Size = New-Object System.Drawing.Size(500, 210)
 $panel.BackColor = $panelBg
 $form.Controls.Add($panel)
 
-$btnSetup = New-HTButton "⚙   Setup (یک‌بار)" 20 20 220 44 $accent ([System.Drawing.Color]::FromArgb(10, 20, 40))
-$btnRebuild = New-HTButton "↻   Rebuild Image" 260 20 220 44 $btnBg $text
-$btnWatch = New-HTButton "▶   Watch Mode" 20 80 220 44 $accent2 ([System.Drawing.Color]::FromArgb(10, 30, 15))
-$btnProcess = New-HTButton "⚡   Process Once" 260 80 220 44 $btnBg $text
-$btnInput = New-HTButton "📂  Input Folder" 20 140 145 40 $btnBg $muted
-$btnOutput = New-HTButton "📊  Output Folder" 177 140 145 40 $btnBg $muted
-$btnLog = New-HTButton "📝  Log" 334 140 146 40 $btnBg $muted
+$btnSetup = New-HTButton "Setup (once)" 20 20 220 44 $accent ([System.Drawing.Color]::FromArgb(10, 20, 40))
+$btnRebuild = New-HTButton "Rebuild Image" 260 20 220 44 $btnBg $text
+$btnWatch = New-HTButton "Watch Mode" 20 80 220 44 $accent2 ([System.Drawing.Color]::FromArgb(10, 30, 15))
+$btnProcess = New-HTButton "Process Once" 260 80 220 44 $btnBg $text
+$btnInput = New-HTButton "Input Folder" 20 140 145 40 $btnBg $muted
+$btnOutput = New-HTButton "Output Folder" 177 140 145 40 $btnBg $muted
+$btnLog = New-HTButton "Log" 334 140 146 40 $btnBg $muted
 
 $panel.Controls.AddRange(@($btnSetup, $btnRebuild, $btnWatch, $btnProcess, $btnInput, $btnOutput, $btnLog))
 
 $chkExcel = New-Object System.Windows.Forms.CheckBox
-$chkExcel.Text = "بعد از پردازش Excel را باز کن"
+$chkExcel.Text = "Open Excel after processing"
 $chkExcel.ForeColor = $muted
 $chkExcel.Location = New-Object System.Drawing.Point(28, 308)
 $chkExcel.AutoSize = $true
@@ -171,7 +170,7 @@ $lblBusy.Visible = $false
 $form.Controls.Add($lblBusy)
 
 $lblLogTitle = New-Object System.Windows.Forms.Label
-$lblLogTitle.Text = "وضعیت"
+$lblLogTitle.Text = "Status"
 $lblLogTitle.ForeColor = $muted
 $lblLogTitle.Location = New-Object System.Drawing.Point(28, 360)
 $lblLogTitle.AutoSize = $true
@@ -190,7 +189,7 @@ $statusBox.BorderStyle = "FixedSingle"
 $form.Controls.Add($statusBox)
 
 $lblStatus = New-Object System.Windows.Forms.Label
-$lblStatus.Text = "در حال بررسی..."
+$lblStatus.Text = "Checking..."
 $lblStatus.ForeColor = $muted
 $lblStatus.Location = New-Object System.Drawing.Point(24, 544)
 $lblStatus.AutoSize = $true
@@ -199,37 +198,37 @@ $form.Controls.Add($lblStatus)
 $script:busy = $false
 
 $btnSetup.Add_Click({
-    Start-HTJob -BusyMsg "Setup در حال اجرا..." -Work {
+    Start-HTJob -BusyMsg "Setup running..." -Work {
         $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "setup.ps1"))
         $p = Start-Process -FilePath "powershell.exe" -ArgumentList $argList -Wait -PassThru -NoNewWindow
-        if ($p.ExitCode -eq 0) { Append-Status "Setup تمام شد" "OK" }
-        else { Append-Status "Setup با خطا تمام شد (کد $($p.ExitCode))" "ERROR" }
+        if ($p.ExitCode -eq 0) { Append-Status "Setup finished" "OK" }
+        else { Append-Status "Setup failed (exit $($p.ExitCode))" "ERROR" }
     }
 })
 
 $btnRebuild.Add_Click({
-    Start-HTJob -BusyMsg "Rebuild ایمیج..." -Work {
+    Start-HTJob -BusyMsg "Rebuilding image..." -Work {
         $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "setup.ps1"), "-Rebuild")
         $p = Start-Process -FilePath "powershell.exe" -ArgumentList $argList -Wait -PassThru -NoNewWindow
-        if ($p.ExitCode -eq 0) { Append-Status "Rebuild موفق" "OK" }
-        else { Append-Status "Rebuild ناموفق" "ERROR" }
+        if ($p.ExitCode -eq 0) { Append-Status "Rebuild OK" "OK" }
+        else { Append-Status "Rebuild failed" "ERROR" }
     }
 })
 
 $btnWatch.Add_Click({
-    Append-Status "Watch Mode در پنجره جدا باز شد (Ctrl+C برای توقف)" "INFO"
-    $args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "watch.ps1"))
-    if ($chkExcel.Checked) { $args += "-OpenExcel" }
-    Start-Process -FilePath "powershell.exe" -ArgumentList $args
+    Append-Status "Watch Mode opened in a new window (Ctrl+C to stop)" "INFO"
+    $wargs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "watch.ps1"))
+    if ($chkExcel.Checked) { $wargs += "-OpenExcel" }
+    Start-Process -FilePath "powershell.exe" -ArgumentList $wargs
 })
 
 $btnProcess.Add_Click({
-    Start-HTJob -BusyMsg "در حال پردازش فایل‌ها..." -Work {
-        $args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "run-once.ps1"))
-        if ($chkExcel.Checked) { $args += "-OpenExcel" }
-        $p = Start-Process -FilePath "powershell.exe" -ArgumentList $args -Wait -PassThru -NoNewWindow
-        if ($p.ExitCode -eq 0) { Append-Status "Process Once تمام شد" "OK" }
-        else { Append-Status "Process با خطا/هشدار تمام شد" "WARN" }
+    Start-HTJob -BusyMsg "Processing files..." -Work {
+        $pargs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $Paths.ScriptDir "run-once.ps1"))
+        if ($chkExcel.Checked) { $pargs += "-OpenExcel" }
+        $p = Start-Process -FilePath "powershell.exe" -ArgumentList $pargs -Wait -PassThru -NoNewWindow
+        if ($p.ExitCode -eq 0) { Append-Status "Process Once finished" "OK" }
+        else { Append-Status "Process finished with errors/warnings" "WARN" }
     }
 })
 
@@ -243,12 +242,12 @@ $btnOutput.Add_Click({
 })
 $btnLog.Add_Click({
     if (Test-Path $Paths.LogFile) { Start-Process notepad.exe $Paths.LogFile }
-    else { Append-Status "هنوز لاگی نیست" "WARN" }
+    else { Append-Status "No log yet" "WARN" }
 })
 
 $form.Add_Shown({
     Update-StatusBar
-    Append-Status "آماده — فایل .txt را در Input بگذار یا Process را بزن" "INFO"
+    Append-Status "Ready - put .txt in Input or click Process Once" "INFO"
 })
 
 $iconPath = Join-Path $Paths.ProjectRoot "assets\app.ico"
