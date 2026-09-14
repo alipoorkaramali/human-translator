@@ -33,9 +33,9 @@ if TYPE_CHECKING:
 
 
 class MyRule(Rule):
-    name = "my_rule"          # یکتا
-    target_label = "m1"       # m1..m5 / special / vp...
-    priority = 50             # کوچک‌تر = زودتر
+    name = "my_rule"
+    target_label = "m1"
+    priority = 50
 
     def apply(self, tokens: List["Token"], ctx: "Context") -> bool:
         changed = False
@@ -43,21 +43,25 @@ class MyRule(Rule):
         return changed
 ```
 
-همهٔ کلاس‌های `Rule` در این پوشه‌ها **خودکار** ثبت می‌شوند.
+## مسیر برچسب‌گذاری (trace)
+
+بعد از هر پردازش برای هر ورودی:
+
+| فایل | محتوا |
+|------|--------|
+| `data/output/output_<name>_trace.txt` | مسیر خوانا: قوانین، SET/OVERRIDE، چندبار برچسب |
+| `data/output/output_<name>_trace.xlsx` | شیت `events` + `per_token` |
+
+در CI همان‌ها داخل آرتیفکت `output-python` و `output-docker` هستند.
 
 ## واژگان فقط
 
-لیست کلمات → ستون‌های `Book1.xlsx` (بدون کد).
+لیست کلمات → ستون‌های `Book1.xlsx`.
 
 ## آفلاین / آنلاین
 
-| محیط | تغییر قانون کد |
-|------|----------------|
-| Windows (`windows\start.bat`) | mount زنده `src/` → فوری |
-| Makefile / docker با `-v src` | فوری |
-| ایمیج بدون mount `src/` | فقط بعد از rebuild |
-
-## Rebuild لازم است اگر
-
-- پکیج جدید در `requirements.txt`
-- تغییر Dockerfile
+| محیط | تغییر قانون |
+|------|-------------|
+| Windows GUI | فوری (`src` mount) |
+| docker با `-v src` | فوری |
+| ایمیج بدون mount | بعد از rebuild |
