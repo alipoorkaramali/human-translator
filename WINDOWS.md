@@ -1,46 +1,76 @@
 # اجرای آفلاین روی ویندوز
 
-با **Docker Desktop** و اسکریپت‌های این مخزن می‌توانی بدون اینترنت (بعد از یک‌بار ساخت ایمیج) متن را پردازش کنی.
+با **Docker Desktop** بعد از یک‌بار ساخت ایمیج، بدون اینترنت پردازش کن.
 
 ## پیش‌نیاز
 
-1. [Docker Desktop](https://www.docker.com/products/docker-desktop/) نصب و در حال اجرا
-2. `Book1.xlsx` در ریشه پروژه
-3. پوشه `nltk_data` (اگر نبود، `setup` سعی می‌کند با Python دانلود کند)
+1. [Docker Desktop](https://www.docker.com/products/docker-desktop/) روشن باشد  
+2. `Book1.xlsx` در ریشه پروژه  
+3. `nltk_data` (اگر نبود، setup با Python دانلود می‌کند)
 
 ## بار اول
 
-دوبار کلیک روی **`setup.bat`**
+```text
+دوبار کلیک → setup.bat
+```
 
-- Docker را چک می‌کند
-- در صورت نیاز `nltk_data` را می‌سازد
-- ایمیج `text-processor` را از `docker/Dockerfile.offline` می‌سازد
+چه کار می‌کند؟
 
-ساخت مجدد ایمیج:
+- چک Docker / Book1 / nltk_data  
+- ساخت ایمیج `text-processor` از `docker/Dockerfile.offline`  
+- **Smoke test** خودکار روی یک جمله نمونه  
+
+ساخت مجدد:
 
 ```bat
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Rebuild
 ```
 
-## استفاده روزمره
+## استفاده
 
 | فایل | کار |
 |------|-----|
-| **watch.bat** | هر `.txt` در `data\input` را رصد و پردازش می‌کند؛ Excel را باز می‌کند |
-| **process.bat** | همه فایل‌های `data\input` را یک‌بار پردازش می‌کند |
+| **watch.bat** | رصد `data\input`؛ هر `.txt` جدید/تغییریافته → پردازش |
+| **process.bat** | همه `.txt`ها را یک‌بار پردازش می‌کند |
 
-خروجی‌ها: `data\output\output_<نام‌فایل>.xlsx`
+خروجی: `data\output\output_<نام>.xlsx`  
+لاگ: `data\output\processor.log`
+
+### باز کردن Excel
+
+پیش‌فرض **خاموش** است. برای روشن کردن:
+
+```bat
+watch.bat -OpenExcel
+```
+
+یا در `scripts\windows-config.psd1`:
+
+```powershell
+OpenExcel = $true
+```
+
+## پیکربندی
+
+فایل: `scripts/windows-config.psd1`
+
+| کلید | پیش‌فرض | معنی |
+|------|---------|------|
+| OpenExcel | false | باز کردن Excel بعد از پردازش |
+| OpenFolder | true | باز کردن پوشه خروجی بعد از process |
+| DebounceMs | 800 | صبر قبل از پردازش (جلوگیری از Save نصفه) |
+| PollMs | 800 | فاصله بررسی پوشه |
+| SmokeTest | true | تست بعد از setup |
 
 ## اگر PowerShell خطا داد
-
-یک‌بار در PowerShell:
 
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-## نکات
+## نکات حرفه‌ای
 
-- ایمیج فقط هنگام `setup` به اینترنت نیاز دارد (pip / spaCy). بعد از آن runtime آفلاین است.
-- فایل‌های موقت Office (`~*`) نادیده گرفته می‌شوند.
-- مسیرها با `$PSScriptRoot` پرتابل‌اند؛ هر جا clone کنی کار می‌کند.
+- قفل فایل (`.locks`) جلوی پردازش همزمان یک فایل را می‌گیرد  
+- فایل‌های `~*` و خالی نادیده گرفته می‌شوند  
+- مسیرها با `$PSScriptRoot` پرتابل‌اند  
+- ایمیج فقط هنگام setup به اینترنت نیاز دارد؛ runtime آفلاین است  
