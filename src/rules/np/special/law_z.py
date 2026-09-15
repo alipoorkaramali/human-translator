@@ -79,7 +79,7 @@ class LawZRule(Rule):
         n = len(tokens)
         while j < n:
             tok = tokens[j]
-            if tok.word.lower() not in heads and is_np_boundary(tok.word):
+            if tok.word.lower() not in heads and is_np_boundary(tok):
                 return j + 1
             j += 1
         return n
