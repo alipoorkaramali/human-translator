@@ -16,9 +16,7 @@ if TYPE_CHECKING:
     from src.ht_token import Token
     from src.core.context import Context
 
-# برچسب‌هایی که داخل NP می‌مانند
 _NP_LABELS = {"m1", "m2", "m3", "m4", "N"}
-# قید تشدیدکننده گاهی داخل NP قبل از صفت است
 _NP_SOFT = {"adv"}
 
 
@@ -29,12 +27,10 @@ def _is_of_linker(tok: "Token") -> bool:
 
 
 def _is_np_material(tok: "Token", preps: set) -> bool:
-    """آیا توکن می‌تواند بخشی از NP_a / NP_b باشد؟"""
     if not tok.word or not tok.word.strip():
         return False
     w = tok.word.lower()
     if " " in w and tok.label == "m1":
-        # quantifier چندکلمه‌ای از قبل ادغام‌شده → یک تکه NP
         return True
     if w == "of":
         return False
@@ -44,12 +40,10 @@ def _is_np_material(tok: "Token", preps: set) -> bool:
         return True
     if tok.label in _NP_SOFT:
         return True
-    # حرف‌اضافه (غیر of) مرز است
     if w in preps:
         return False
-    if is_np_boundary(tok.word, preps):
+    if is_np_boundary(tok, preps):
         return False
-    # اسم/مقالهٔ بدون برچسب هنوز — محتاط: فقط اگر role اسم/مقاله باشد
     if tok.label == "" and tok.role in (
         "noun", "proper noun", "determiner/article", "determiner/quantifier",
         "determiner",
@@ -59,10 +53,9 @@ def _is_np_material(tok: "Token", preps: set) -> bool:
 
 
 def _expand_left(tokens: List["Token"], end_excl: int, preps: set) -> int:
-    """از end_excl-1 به چپ؛ شروع بازهٔ NP_a را برمی‌گرداند."""
     j = end_excl - 1
     if j < 0 or not _is_np_material(tokens[j], preps):
-        return end_excl  # خالی
+        return end_excl
     start = j
     j -= 1
     while j >= 0 and _is_np_material(tokens[j], preps):
@@ -72,7 +65,6 @@ def _expand_left(tokens: List["Token"], end_excl: int, preps: set) -> int:
 
 
 def _expand_right(tokens: List["Token"], start: int, preps: set) -> int:
-    """از start به راست؛ end exclusive بازهٔ NP_b."""
     n = len(tokens)
     if start >= n or not _is_np_material(tokens[start], preps):
         return start
@@ -83,7 +75,6 @@ def _expand_right(tokens: List["Token"], start: int, preps: set) -> int:
 
 
 def _has_nominal_head(tokens: List["Token"], a: int, b: int) -> bool:
-    """حداقل یک N یا m1 (یا m3) در بازه."""
     for i in range(a, b):
         if tokens[i].label in {"N", "m1", "m3", "m4"}:
             return True
@@ -93,9 +84,6 @@ def _has_nominal_head(tokens: List["Token"], a: int, b: int) -> bool:
 
 
 class NpOfNpSpanRule(Rule):
-    """
-    فاز np_span — فقط فیلدهای np_inner / np_of_np را پر می‌کند.
-    """
     name = "np_of_np_span"
     target_label = "np_span"
     priority = 10
@@ -106,7 +94,6 @@ class NpOfNpSpanRule(Rule):
 
         preps = set(getattr(ctx, "preposition_set", None) or DEFAULT_PREPOSITIONS)
 
-        # پاک‌سازی قبلی (idempotent)
         for t in tokens:
             t.np_inner = ""
             t.np_of_np = ""
@@ -114,7 +101,7 @@ class NpOfNpSpanRule(Rule):
         group_id = 0
         i = 0
         changed = False
-        used = set()  # ایندکس‌هایی که در یک G-np گرفته شده‌اند
+        used = set()
 
         while i < len(tokens):
             if i in used or not _is_of_linker(tokens[i]):
@@ -136,7 +123,6 @@ class NpOfNpSpanRule(Rule):
             if not _has_nominal_head(tokens, right_start, right_end):
                 i += 1
                 continue
-            # جلوگیری از هم‌پوشانی با گروه قبلی
             if any(j in used for j in range(left_start, right_end)):
                 i += 1
                 continue
@@ -149,7 +135,7 @@ class NpOfNpSpanRule(Rule):
                 tokens[j].np_of_np = gname
                 used.add(j)
 
-            tokens[i].np_inner = ""  # لینکر of
+            tokens[i].np_inner = ""
             tokens[i].np_of_np = gname
             used.add(i)
 
