@@ -26,7 +26,7 @@ _ROLE = "adjective (comparative)"
 class MoreAfterM1FinalRule(Rule):
     name = "more_after_m1_final"
     target_label = "special"
-    priority = 98  # خیلی دیر — بعد از WordNet / final_fix
+    priority = 98
 
     def apply(self, tokens: List["Token"], ctx: "Context") -> bool:
         changed = False
@@ -43,7 +43,7 @@ class MoreAfterM1FinalRule(Rule):
             while j >= 0:
                 prev = tokens[j]
 
-                if is_np_boundary(prev.word):
+                if is_np_boundary(prev):
                     break
                 if prev.label in ("m2", "adv") or prev.word.lower() in {",", "and", "but", "or"}:
                     break

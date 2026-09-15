@@ -5,10 +5,14 @@
   1) علائم نگارشی
   2) حروف اضافه (به‌جز of / as که هرگز مرز نیستند)
   3) حروف ربط
-  4) EXTRA_NP_BOUNDARY_WORDS  ← لیست دستی تو
-  5) فعل (برچسب V روی Token، یا WordNet pos=v)
+  4) افعال کمکی رایج (has/is/was/...)
+  5) EXTRA_NP_BOUNDARY_WORDS  ← لیست دستی تو
+  6) فعل (برچسب V روی Token، یا WordNet pos=v)
 
 برای گسترش: فقط EXTRA_NP_BOUNDARY_WORDS یا DEFAULT_PREPOSITIONS را عوض کن.
+
+معنا: وقتی True شود، حلقه look-back/look-ahead باید break کند
+و از این توکن رد نشود (= دیوار بین دو NP / بند).
 """
 from __future__ import annotations
 
@@ -27,7 +31,6 @@ DEFAULT_PREPOSITIONS = {
     'up', 'down', 'off', 'out', 'past', 'next',
 }
 
-# of / as هرگز مرز NP نیستند
 NEVER_NP_BOUNDARY_PREPS = frozenset({'of', 'as'})
 
 NP_BOUNDARY_PUNCT = frozenset({
@@ -38,9 +41,15 @@ NP_BOUNDARY_CONJUNCTIONS = frozenset({
     'and', 'but', 'or', 'nor', 'yet', 'so',
 })
 
-# کلمات اضافه‌ای که خودت مرز می‌دانی — لیست را اینجا کامل کن
-# مثال: EXTRA_NP_BOUNDARY_WORDS = {'however', 'therefore', 'meanwhile'}
 EXTRA_NP_BOUNDARY_WORDS: Set[str] = set()
+
+NP_BOUNDARY_AUX_VERBS = frozenset({
+    'be', 'am', 'is', 'are', 'was', 'were', 'been', 'being',
+    'have', 'has', 'had', 'having',
+    'do', 'does', 'did', 'doing', 'done',
+    'will', 'would', 'shall', 'should',
+    'can', 'could', 'may', 'might', 'must',
+})
 
 
 def is_np_boundary(token: Any, preposition_set: Optional[Set[str]] = None) -> bool:
@@ -70,6 +79,9 @@ def is_np_boundary(token: Any, preposition_set: Optional[Set[str]] = None) -> bo
         return True
 
     if t in NP_BOUNDARY_CONJUNCTIONS:
+        return True
+
+    if t in NP_BOUNDARY_AUX_VERBS:
         return True
 
     if t in EXTRA_NP_BOUNDARY_WORDS:
