@@ -79,7 +79,7 @@ class WordNetFinalizeRule(Rule):
             j = i - 1
             while j >= 0:
                 prev = tokens[j]
-                if is_np_boundary(prev.word):
+                if is_np_boundary(prev):
                     break
                 if prev.label in ("m2", "adv") or prev.word.lower() in {
                     ",", "and", "but", "or"
