@@ -5,6 +5,9 @@
 نوع از روی آخرین جزء:
   twenty one          → cardinal + m1
   twenty first        → ordinal  + label خالی (برای the_ordinal بعدی)
+
+  ordinal سپس cardinal ادغام نمی‌شود:
+  first three / last two  → جدا می‌مانند (the_ordinal + cardinal)
 """
 from typing import List, TYPE_CHECKING
 import re
@@ -58,6 +61,13 @@ class CompoundNumberRule(Rule):
                     break
                 next_subtype = numeric_subtype(nxt, cardinals, ordinals)
                 if next_subtype:
+                    last_st = numeric_subtype(
+                        tokens[seq_indices[-1]], cardinals, ordinals
+                    )
+                    # ordinal + cardinal عدد مرکب نیست (first three / last two)
+                    # برعکسش OK: twenty first → ordinal مرکب
+                    if last_st == "ordinal" and next_subtype == "cardinal":
+                        break
                     seq_indices.append(j)
                     j += 1
                     continue
@@ -65,6 +75,11 @@ class CompoundNumberRule(Rule):
                 if is_and_word(nxt.word) and j + 1 < len(tokens):
                     nn = tokens[j + 1]
                     nn_subtype = numeric_subtype(nn, cardinals, ordinals)
+                    last_st = numeric_subtype(
+                        tokens[seq_indices[-1]], cardinals, ordinals
+                    )
+                    if last_st == "ordinal" and nn_subtype == "cardinal":
+                        break
                     if nn_subtype and not nn.locked:
                         seq_indices.append(j)  # and
                         j += 1
