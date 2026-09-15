@@ -48,12 +48,11 @@ class SimpleOfRule(Rule):
                 i += 1
                 continue
 
-            # آیا قبلش کمیت‌نما هست؟
             has_previous_quantifier = False
             for j in range(i - 1, max(i - 12, -1), -1):
                 prev = tokens[j]
                 prev_w = prev.word.lower()
-                if is_np_boundary(prev.word) or prev_w in {",", "and", "but", "or"}:
+                if is_np_boundary(prev) or prev_w in {",", "and", "but", "or"}:
                     break
                 prev_nt = numeric_subtype(prev, cardinals, ordinals)
                 if (
@@ -65,14 +64,12 @@ class SimpleOfRule(Rule):
                     break
 
             if has_previous_quantifier:
-                # دو کمیت‌نما پشت‌سرهم → دومی m1 نمی‌گیرد؛ of را جدا می‌گذاریم
                 if tok.label == "m1":
                     tok.label = ""
                     changed = True
                 i += 2
                 continue
 
-            # امن → ترکیب "X of"
             combined_word = f"{tok.word} of"
             of_tok = tokens[i + 1]
             if of_tok.locked:
@@ -82,13 +79,14 @@ class SimpleOfRule(Rule):
             combined = Token(
                 word=combined_word,
                 label="m1",
-                subtype=nt,
+                subtype=tok.subtype or nt or "",
                 role="quantifier_phrase (multi-word)",
                 index=tok.index,
-                original=combined_word,
+                original=f"{tok.original} {of_tok.original}".strip(),
+                locked=True,
             )
             tokens[i:i + 2] = [combined]
             changed = True
-            i += 1
+            # i stays to allow chain checks after merge
 
         return changed
